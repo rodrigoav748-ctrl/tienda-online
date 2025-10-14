@@ -1,12 +1,9 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
+  "build": {
+    "env": {
+      "MONGODB_URI": "mongodb+srv://rodrigoav748_db_user:Trexyol0@tiendaonline.b3voxws.mongodb.net/tienda?retryWrites=true&w=majority",
+      "JWT_SECRET": "tu_jwt_secret_super_seguro_aqui_puedes_poner_cualquier_texto_largo",
+      "NEXTAUTH_URL": "https://tu-app.vercel.app"
     }
-  ],
-  "env": {
-    "MONGODB_URI": "@mongodb_uri"
   }
 }
