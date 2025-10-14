@@ -1,0 +1,6 @@
+codigo,nombre,precio,stock,descripcion,oferta,categoria,activo,peso
+PROD001,Smartphone Samsung Galaxy,599.99,50,Smartphone Android con 128GB,si,Electrónica,si,0.2
+PROD002,Laptop HP Pavilion,899.99,25,Laptop 15.6" Intel i5,no,Computación,si,2.5
+PROD003,Audífonos Sony,149.99,100,Audífonos inalámbricos noise canceling,si,Audio,si,0.3
+PROD004,Tablet Amazon Fire,79.99,75,Tablet 8" 32GB,si,Tablets,si,0.4
+PROD005,Smart TV 55",449.99,30,TV 4K UHD Smart TV,no,Televisores,si,15.0

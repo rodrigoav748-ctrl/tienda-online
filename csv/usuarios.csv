@@ -1,0 +1,5 @@
+nombre,email,password,rol,telefono,calle,ciudad,pais,codigo_postal
+Juan Pérez,admin@tienda.com,admin123,admin,+123456789,Av Principal 123,Ciudad A,País X,12345
+María García,maria@tienda.com,user123,cliente,+123456788,Calle Secundaria 456,Ciudad B,País Y,67890
+Carlos López,carlos@tienda.com,user456,trabajador,+123456787,Av Central 789,Ciudad C,País Z,54321
+Ana Martínez,ana@tienda.com,user789,cliente,+123456786,Calle Norte 321,Ciudad D,País W,98765
