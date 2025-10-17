@@ -9,7 +9,6 @@ export default async function handler(req, res) {
       const categories = await Category.find({ activa: true });
       res.status(200).json({ success: true, data: categories });
     } catch (error) {
-      console.error('Error fetching categories:', error);
       res.status(400).json({ success: false, error: error.message });
     }
   } else {

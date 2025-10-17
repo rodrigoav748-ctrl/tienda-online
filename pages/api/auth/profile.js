@@ -23,7 +23,6 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
 
-    // Actualizar datos del perfil
     const { nombre, email, telefono, direccion } = req.body;
     
     user.nombre = nombre || user.nombre;
@@ -33,7 +32,6 @@ export default async function handler(req, res) {
 
     await user.save();
 
-    // Devolver usuario actualizado (sin password)
     const userResponse = {
       _id: user._id,
       nombre: user.nombre,

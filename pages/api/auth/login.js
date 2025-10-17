@@ -13,7 +13,6 @@ export default async function handler(req, res) {
   try {
     const { email, password } = req.body;
 
-    // Buscar usuario
     const user = await User.findOne({ email, activo: true });
     if (!user) {
       return res.status(400).json({ 
@@ -22,7 +21,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Verificar contraseña
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ 
@@ -31,14 +29,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // Crear token
     const token = jwt.sign(
       { userId: user._id, email: user.email, rol: user.rol },
       process.env.JWT_SECRET || 'fallback-secret',
       { expiresIn: '7d' }
     );
 
-    // Devolver usuario (sin password)
     const userResponse = {
       _id: user._id,
       nombre: user.nombre,

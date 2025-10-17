@@ -12,7 +12,6 @@ export default async function handler(req, res) {
   try {
     const { nombre, email, password } = req.body;
 
-    // Verificar si el usuario ya existe
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ 
@@ -21,10 +20,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Crear usuario
     const user = await User.create({
       nombre,
       email,

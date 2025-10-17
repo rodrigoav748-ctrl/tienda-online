@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Admin() {
   const [products, setProducts] = useState([]);
@@ -10,16 +11,20 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
+  const { user, isAdmin } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
+    if (!isAdmin) {
+      router.push('/products');
+      return;
+    }
     loadProducts();
     loadCategories();
-  }, []);
+  }, [isAdmin, router]);
 
   const loadProducts = async () => {
     try {
-      // El admin necesita ver TODOS los productos, incluyendo inactivos
       const response = await fetch('/api/products?admin=true');
       const data = await response.json();
       if (data.success) {
@@ -44,7 +49,6 @@ export default function Admin() {
     }
   };
 
-  // Generar código único para nuevo producto
   const generateProductCode = () => {
     return 'PROD_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
   };
@@ -56,7 +60,6 @@ export default function Admin() {
 
     const formData = new FormData(e.target);
     
-    // Preparar datos del producto
     const productData = {
       nombre: formData.get('nombre'),
       precio: parseFloat(formData.get('precio')),
@@ -69,12 +72,10 @@ export default function Admin() {
       descuento: parseInt(formData.get('descuento')) || 0
     };
 
-    // Para productos nuevos, agregar código
     if (!editingProduct) {
       productData.codigo = generateProductCode();
     }
 
-    // Validaciones
     if (!productData.nombre || !productData.precio || productData.stock === undefined) {
       setFormError('Por favor completa todos los campos requeridos');
       return;
@@ -102,8 +103,6 @@ export default function Admin() {
       
       const method = editingProduct ? 'PUT' : 'POST';
       
-      console.log('Enviando datos:', productData); // Debug
-      
       const response = await fetch(url, {
         method,
         headers: {
@@ -118,7 +117,6 @@ export default function Admin() {
         setFormSuccess(editingProduct ? 'Producto actualizado exitosamente' : 'Producto creado exitosamente');
         await loadProducts();
         
-        // Cerrar formulario después de 1 segundo
         setTimeout(() => {
           setShowForm(false);
           setEditingProduct(null);
@@ -184,8 +182,17 @@ export default function Admin() {
   };
 
   const goBack = () => {
-    router.push('/');
+    router.push('/products');
   };
+
+  if (!user || !isAdmin) {
+    return (
+      <div className="loading-full">
+        <div className="spinner"></div>
+        <p>Verificando permisos...</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -197,7 +204,7 @@ export default function Admin() {
         <div className="admin-header">
           <div className="admin-header-left">
             <button className="btn-back" onClick={goBack}>
-              ← Volver a la Tienda
+              ← Volver a Productos
             </button>
             <h1>⚙️ Panel de Administración</h1>
           </div>
@@ -214,7 +221,6 @@ export default function Admin() {
           </button>
         </div>
 
-        {/* Estadísticas rápidas */}
         <div className="admin-stats">
           <div className="stat-card">
             <div className="stat-number">{products.length}</div>
@@ -234,7 +240,6 @@ export default function Admin() {
           </div>
         </div>
 
-        {/* Formulario de producto */}
         {showForm && (
           <div className="modal-overlay">
             <div className="modal-content">
@@ -253,7 +258,6 @@ export default function Admin() {
                 </button>
               </div>
               
-              {/* Mensajes de error/éxito */}
               {formError && (
                 <div className="alert alert-error">
                   {formError}
@@ -269,18 +273,19 @@ export default function Admin() {
               <form onSubmit={handleSubmit} className="product-form">
                 <div className="form-grid">
                   <div className="form-group">
-                    <label>Nombre del Producto *</label>
+                    <label className="form-label">Nombre del Producto *</label>
                     <input
                       type="text"
                       name="nombre"
                       defaultValue={editingProduct?.nombre}
                       required
                       placeholder="Ej: Smartphone Samsung Galaxy"
+                      className="form-input"
                     />
                   </div>
                   
                   <div className="form-group">
-                    <label>Precio ($) *</label>
+                    <label className="form-label">Precio ($) *</label>
                     <input
                       type="number"
                       name="precio"
@@ -289,23 +294,25 @@ export default function Admin() {
                       defaultValue={editingProduct?.precio}
                       required
                       placeholder="0.00"
+                      className="form-input"
                     />
                   </div>
                   
                   <div className="form-group">
-                    <label>Stock *</label>
+                    <label className="form-label">Stock *</label>
                     <input
                       type="number"
                       name="stock"
                       min="0"
                       defaultValue={editingProduct?.stock || 0}
                       required
+                      className="form-input"
                     />
                   </div>
                   
                   <div className="form-group">
-                    <label>Categoría *</label>
-                    <select name="categoria" defaultValue={editingProduct?.categoria || ''} required>
+                    <label className="form-label">Categoría *</label>
+                    <select name="categoria" defaultValue={editingProduct?.categoria || ''} required className="form-input">
                       <option value="">Seleccionar categoría</option>
                       {categories.map(cat => (
                         <option key={cat._id} value={cat.nombre}>
@@ -316,7 +323,7 @@ export default function Admin() {
                   </div>
                   
                   <div className="form-group">
-                    <label>Peso (kg)</label>
+                    <label className="form-label">Peso (kg)</label>
                     <input
                       type="number"
                       name="peso"
@@ -324,11 +331,12 @@ export default function Admin() {
                       min="0"
                       defaultValue={editingProduct?.peso || 0}
                       placeholder="0.00"
+                      className="form-input"
                     />
                   </div>
                   
                   <div className="form-group">
-                    <label>% Descuento</label>
+                    <label className="form-label">% Descuento</label>
                     <input
                       type="number"
                       name="descuento"
@@ -336,17 +344,19 @@ export default function Admin() {
                       max="100"
                       defaultValue={editingProduct?.descuento || 0}
                       placeholder="0-100"
+                      className="form-input"
                     />
                   </div>
                 </div>
                 
                 <div className="form-group">
-                  <label>Descripción</label>
+                  <label className="form-label">Descripción</label>
                   <textarea
                     name="descripcion"
                     rows="3"
                     defaultValue={editingProduct?.descripcion}
                     placeholder="Descripción detallada del producto..."
+                    className="form-input"
                   ></textarea>
                 </div>
                 
@@ -369,12 +379,6 @@ export default function Admin() {
                     <span>Producto activo</span>
                   </label>
                 </div>
-
-                {editingProduct && (
-                  <div className="form-info">
-                    <small>Código del producto: {editingProduct.codigo}</small>
-                  </div>
-                )}
                 
                 <div className="form-actions">
                   <button 
@@ -392,7 +396,7 @@ export default function Admin() {
                   <button 
                     type="submit" 
                     className="btn btn-primary"
-                    disabled={!!formSuccess} // Deshabilitar cuando hay éxito
+                    disabled={!!formSuccess}
                   >
                     {editingProduct ? 'Actualizar' : 'Crear'} Producto
                   </button>
@@ -402,7 +406,6 @@ export default function Admin() {
           </div>
         )}
 
-        {/* Lista de productos */}
         <div className="products-table-container">
           {loading ? (
             <div className="loading">

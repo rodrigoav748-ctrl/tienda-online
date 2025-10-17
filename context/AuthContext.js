@@ -20,7 +20,6 @@ export function AuthProvider({ children }) {
       if (token && userData) {
         setUser(JSON.parse(userData));
         
-        // Verificar si el token es válido
         const response = await fetch('/api/auth/verify', {
           headers: {
             'Authorization': `Bearer ${token}`

@@ -64,17 +64,13 @@ export default function Products() {
         setCategories([
           { _id: '1', nombre: 'Electrónica' },
           { _id: '2', nombre: 'Computación' },
-          { _id: '3', nombre: 'Hogar' },
-          { _id: '4', nombre: 'Deportes' },
-          { _id: '5', nombre: 'Ropa' }
+          { _id: '3', nombre: 'Hogar' }
         ]);
       }
     } catch (error) {
-      console.error('Error loading categories:', error);
       setCategories([
         { _id: '1', nombre: 'Electrónica' },
-        { _id: '2', nombre: 'Computación' },
-        { _id: '3', nombre: 'General' }
+        { _id: '2', nombre: 'Computación' }
       ]);
     }
   };
@@ -193,10 +189,6 @@ export default function Products() {
 
   const proceedToPayment = () => {
     if (cart.length === 0) return;
-    if (!isAuthenticated) {
-      router.push('/login?redirect=checkout');
-      return;
-    }
     router.push('/checkout');
   };
 
@@ -302,16 +294,6 @@ export default function Products() {
                 🔄 Limpiar filtros
               </button>
             </div>
-
-            <div className="sidebar-section">
-              <h3>💎 Próximamente</h3>
-              <div className="coming-soon">
-                <div>🍪 Galletas y Snacks</div>
-                <div>🥤 Bebidas</div>
-                <div>🧼 Limpieza</div>
-                <div>🧴 Cuidado Personal</div>
-              </div>
-            </div>
           </aside>
 
           <main className="products-main">
@@ -319,14 +301,6 @@ export default function Products() {
               <h2>Nuestros Productos</h2>
               <div className="products-stats">
                 <span>{filteredProducts.length} productos</span>
-                {selectedCategories.length > 0 && (
-                  <span className="filter-tag">
-                    {selectedCategories.length} categorías
-                  </span>
-                )}
-                {showOfertas && (
-                  <span className="filter-tag">Ofertas</span>
-                )}
               </div>
             </div>
 
@@ -551,4 +525,3 @@ function UserDropdown({ user, isAdmin }) {
     </div>
   );
 }
-

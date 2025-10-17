@@ -59,7 +59,6 @@ const ProductSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Crear índice para búsquedas
 ProductSchema.index({ nombre: 'text', descripcion: 'text' });
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

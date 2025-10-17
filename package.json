@@ -1,5 +1,5 @@
 {
-  "name": "ecommerce-nextjs",
+  "name": "tienda-online",
   "version": "1.0.0",
   "scripts": {
     "dev": "next dev",
@@ -7,14 +7,13 @@
     "start": "next start"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "csv-parser": "^3.0.0",
-    "jsonwebtoken": "^9.0.0",
-    "mongodb": "^5.0.0",
-    "mongoose": "^7.0.0",
-    "multer": "^2.0.2",
     "next": "^13.0.0",
     "react": "^18.0.0",
-    "react-dom": "^18.0.0"
+    "react-dom": "^18.0.0",
+    "mongodb": "^5.0.0",
+    "mongoose": "^7.0.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0",
+    "csv-parser": "^3.0.0"
   }
 }

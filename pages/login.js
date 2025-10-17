@@ -72,6 +72,7 @@ export default function Login() {
               </div>
 
               <div className="form-group">
+                <label className="form-label"></label>
                 <label className="form-label">Contraseña</label>
                 <input
                   type="password"

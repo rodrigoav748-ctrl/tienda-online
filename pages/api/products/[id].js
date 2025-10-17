@@ -20,8 +20,6 @@ export default async function handler(req, res) {
 
     case 'PUT':
       try {
-        console.log('Actualizando producto:', id, req.body); // Debug
-        
         const product = await Product.findByIdAndUpdate(id, req.body, {
           new: true,
           runValidators: true,
@@ -33,7 +31,6 @@ export default async function handler(req, res) {
         
         res.status(200).json({ success: true, data: product });
       } catch (error) {
-        console.error('Error actualizando producto:', error);
         res.status(400).json({ success: false, error: error.message });
       }
       break;

@@ -11,7 +11,6 @@ export default function Checkout() {
   const router = useRouter();
 
   useEffect(() => {
-    // Verificar autenticación
     if (!isAuthenticated) {
       router.push('/login?redirect=checkout');
       return;
@@ -19,42 +18,35 @@ export default function Checkout() {
 
     const savedCart = localStorage.getItem('cart');
     if (!savedCart || JSON.parse(savedCart).length === 0) {
-      router.push('/');
+      router.push('/products');
       return;
     }
     setCart(JSON.parse(savedCart));
   }, [isAuthenticated, router]);
 
-
-
-  // Calcular totales considerando descuentos
   const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   
-  // Calcular subtotal sin descuentos
   const subtotalSinDescuento = cart.reduce((total, item) => {
     const precioOriginal = item.originalPrice || item.price;
     return total + (precioOriginal * item.quantity);
   }, 0);
   
-  // Calcular ahorro total por descuentos
   const ahorroTotal = subtotalSinDescuento - cartTotal;
   
-  const tax = cartTotal * 0.02; // 18% de IGV
+  const tax = cartTotal * 0.18;
   const finalTotal = cartTotal + tax;
 
   const cancelOrder = () => {
     localStorage.removeItem('cart');
-    router.push('/');
+    router.push('/products');
   };
 
   const processPayment = async () => {
     setProcessing(true);
     
     try {
-      // Simular procesamiento de pago
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Actualizar stock en la base de datos
       const updatePromises = cart.map(item => 
         fetch('/api/products/update-stock', {
           method: 'POST',
@@ -70,15 +62,12 @@ export default function Checkout() {
 
       await Promise.all(updatePromises);
       
-      // Limpiar carrito
       localStorage.removeItem('cart');
       
-      // Mostrar confirmación
       setOrderComplete(true);
       
-      // Redirigir después de 3 segundos
       setTimeout(() => {
-        router.push('/');
+        router.push('/products');
       }, 3000);
       
     } catch (error) {

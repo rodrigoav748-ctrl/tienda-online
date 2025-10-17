@@ -1,6 +1,7 @@
 import dbConnect from '../../../lib/mongodb';
 import User from '../../../models/User';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -25,8 +26,7 @@ export default async function handler(req, res) {
 
     const { currentPassword, newPassword } = req.body;
 
-    // Verificar contraseña actual
-    const isMatch = await user.comparePassword(currentPassword);
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(400).json({ 
         success: false, 
@@ -34,8 +34,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Actualizar contraseña
-    user.password = newPassword;
+    user.password = await bcrypt.hash(newPassword, 12);
     await user.save();
 
     res.status(200).json({
