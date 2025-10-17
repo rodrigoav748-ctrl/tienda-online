@@ -1,5 +1,4 @@
-﻿
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
@@ -139,13 +138,142 @@ export default function Account() {
         <div className="account-content">
           {activeTab === 'profile' && (
             <form onSubmit={handleProfileUpdate} className="account-form">
-              {/* ... resto igual ... */}
+              <div className="form-grid">
+                <div className="form-group">
+                  <label className="form-label">Nombre Completo *</label>
+                  <input
+                    type="text"
+                    value={profileData.nombre}
+                    onChange={(e) => setProfileData({...profileData, nombre: e.target.value})}
+                    className="form-input"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Email *</label>
+                  <input
+                    type="email"
+                    value={profileData.email}
+                    onChange={(e) => setProfileData({...profileData, email: e.target.value})}
+                    className="form-input"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Teléfono</label>
+                  <input
+                    type="tel"
+                    value={profileData.telefono}
+                    onChange={(e) => setProfileData({...profileData, telefono: e.target.value})}
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
+              <div className="form-section">
+                <h3>📮 Dirección</h3>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label className="form-label">Calle</label>
+                    <input
+                      type="text"
+                      value={profileData.direccion.calle}
+                      onChange={(e) => setProfileData({
+                        ...profileData, 
+                        direccion: {...profileData.direccion, calle: e.target.value}
+                      })}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Ciudad</label>
+                    <input
+                      type="text"
+                      value={profileData.direccion.ciudad}
+                      onChange={(e) => setProfileData({
+                        ...profileData, 
+                        direccion: {...profileData.direccion, ciudad: e.target.value}
+                      })}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">País</label>
+                    <input
+                      type="text"
+                      value={profileData.direccion.pais}
+                      onChange={(e) => setProfileData({
+                        ...profileData, 
+                        direccion: {...profileData.direccion, pais: e.target.value}
+                      })}
+                      className="form-input"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Código Postal</label>
+                    <input
+                      type="text"
+                      value={profileData.direccion.codigo_postal}
+                      onChange={(e) => setProfileData({
+                        ...profileData, 
+                        direccion: {...profileData.direccion, codigo_postal: e.target.value}
+                      })}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" className="btn btn-primary" disabled={loading}>
+                {loading ? 'Guardando...' : '💾 Guardar Cambios'}
+              </button>
             </form>
           )}
 
           {activeTab === 'password' && (
             <form onSubmit={handlePasswordChange} className="account-form">
-              {/* ... resto igual ... */}
+              <div className="form-group">
+                <label className="form-label">Contraseña Actual *</label>
+                <input
+                  type="password"
+                  value={passwordData.currentPassword}
+                  onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Nueva Contraseña *</label>
+                <input
+                  type="password"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                  className="form-input"
+                  required
+                  minLength="6"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Confirmar Nueva Contraseña *</label>
+                <input
+                  type="password"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                  className="form-input"
+                  required
+                />
+              </div>
+
+              <button type="submit" className="btn btn-primary" disabled={loading}>
+                {loading ? 'Cambiando...' : '🔒 Cambiar Contraseña'}
+              </button>
             </form>
           )}
         </div>
