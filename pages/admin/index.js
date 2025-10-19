@@ -569,7 +569,6 @@ export default function AdminPanel() {
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th>Código</th>
                       <th>Nombre</th>
                       <th>Precio</th>
                       <th>Stock</th>
@@ -582,9 +581,13 @@ export default function AdminPanel() {
                   <tbody>
                     {products.map(product => (
                       <tr key={product._id} className={!product.activo ? 'inactive-row' : ''}>
-                        <td>{product.codigo}</td>
-                        <td>{product.nombre}</td>
-                        <td>${product.precio.toFixed(2)}</td>
+                        <td>
+                          <div className="product-name-cell">
+                            <strong>{product.nombre}</strong>
+                            <small className="product-code">{product.codigo}</small>
+                          </div>
+                        </td>
+                        <td><strong>${product.precio.toFixed(2)}</strong></td>
                         <td>{product.stock}</td>
                         <td>{product.categoria}</td>
                         <td>{product.descuento > 0 ? `${product.descuento}%` : '-'}</td>
@@ -602,14 +605,14 @@ export default function AdminPanel() {
                             <button 
                               className="btn-icon btn-edit"
                               onClick={() => editProduct(product)}
-                              title="Editar"
+                              title="Editar producto"
                             >
                               ✏️
                             </button>
                             <button 
                               className="btn-icon btn-delete"
                               onClick={() => deleteProduct(product._id)}
-                              title="Eliminar"
+                              title="Eliminar producto"
                             >
                               🗑️
                             </button>
@@ -706,13 +709,17 @@ export default function AdminPanel() {
                   </thead>
                   <tbody>
                     {categories.map(category => (
-                      <tr key={category._id}>
+                      <tr key={category._id} className={!category.activa ? 'inactive-row' : ''}>
                         <td>{category.nombre}</td>
                         <td>{category.descripcion || '-'}</td>
                         <td>
-                          <span className={`status-badge ${category.activa ? 'active' : 'inactive'}`}>
-                            {category.activa ? 'Activa' : 'Inactiva'}
-                          </span>
+                          <button 
+                            className={`status-toggle ${category.activa ? 'active' : 'inactive'}`}
+                            onClick={() => toggleCategoryStatus(category)}
+                            title={category.activa ? 'Click para desactivar' : 'Click para activar'}
+                          >
+                            {category.activa ? '✓ Activa' : '✗ Inactiva'}
+                          </button>
                         </td>
                         <td>
                           <div className="table-actions">
