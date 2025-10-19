@@ -4,21 +4,21 @@ import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
 
 export default function Account() {
-  const { user, updateProfile, changePassword, logout } = useAuth();
+  const { user, updateProfile, changePassword, logout, isAuthenticated, loading } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('profile');
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
   const [profileData, setProfileData] = useState({
-    nombre: user?.nombre || '',
-    email: user?.email || '',
-    telefono: user?.telefono || '',
+    nombre: '',
+    email: '',
+    telefono: '',
     direccion: {
-      calle: user?.direccion?.calle || '',
-      ciudad: user?.direccion?.ciudad || '',
-      pais: user?.direccion?.pais || '',
-      codigo_postal: user?.direccion?.codigo_postal || ''
+      calle: '',
+      ciudad: '',
+      pais: '',
+      codigo_postal: ''
     }
   });
 
@@ -28,19 +28,33 @@ export default function Account() {
     confirmPassword: ''
   });
 
-  // 🚀 Redirección segura en el cliente
+  // Actualizar datos cuando user cambie
   useEffect(() => {
-    if (!user) {
+    if (user) {
+      setProfileData({
+        nombre: user.nombre || '',
+        email: user.email || '',
+        telefono: user.telefono || '',
+        direccion: {
+          calle: user.direccion?.calle || '',
+          ciudad: user.direccion?.ciudad || '',
+          pais: user.direccion?.pais || '',
+          codigo_postal: user.direccion?.codigo_postal || ''
+        }
+      });
+    }
+  }, [user]);
+
+  // Redirigir si no está autenticado (solo en cliente)
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
       router.push('/login');
     }
-  }, [user, router]);
-
-  // Si aún no hay usuario (mientras se redirige), evita renderizar contenido
-  if (!user) return null;
+  }, [loading, isAuthenticated, router]);
 
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
     setMessage('');
 
     const result = await updateProfile(profileData);
@@ -50,17 +64,17 @@ export default function Account() {
     } else {
       setMessage(`❌ ${result.message}`);
     }
-    setLoading(false);
+    setSaving(false);
   };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
     setMessage('');
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setMessage('❌ Las contraseñas no coinciden');
-      setLoading(false);
+      setSaving(false);
       return;
     }
 
@@ -76,8 +90,18 @@ export default function Account() {
     } else {
       setMessage(`❌ ${result.message}`);
     }
-    setLoading(false);
+    setSaving(false);
   };
+
+  // Mostrar loading mientras verifica autenticación
+  if (loading || !isAuthenticated) {
+    return (
+      <div className="loading-full">
+        <div className="spinner"></div>
+        <p>Cargando...</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -229,8 +253,8 @@ export default function Account() {
                 </div>
               </div>
 
-              <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Guardando...' : '💾 Guardar Cambios'}
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? 'Guardando...' : '💾 Guardar Cambios'}
               </button>
             </form>
           )}
@@ -271,8 +295,8 @@ export default function Account() {
                 />
               </div>
 
-              <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Cambiando...' : '🔒 Cambiar Contraseña'}
+              <button type="submit" className="btn btn-primary" disabled={saving}>
+                {saving ? 'Cambiando...' : '🔒 Cambiar Contraseña'}
               </button>
             </form>
           )}
@@ -281,3 +305,8 @@ export default function Account() {
     </>
   );
 }
+
+// CRÍTICO: Deshabilitar SSR para esta página
+Account.getInitialProps = () => {
+  return {};
+};

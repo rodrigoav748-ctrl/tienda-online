@@ -2,26 +2,60 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
+import { getProductImage, getAvailableImages } from '../../lib/imageMapper';
 
-export default function Admin() {
+export default function AdminPanel() {
+  const { user, isAdmin, isAuthenticated, loading } = useAuth();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('products');
+  
+  // Estados para productos
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [formError, setFormError] = useState('');
-  const [formSuccess, setFormSuccess] = useState('');
-  const { user, isAdmin } = useAuth();
-  const router = useRouter();
+  const [showProductForm, setShowProductForm] = useState(false);
+  
+  // Estados para categorías
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  
+  const [message, setMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  const [productForm, setProductForm] = useState({
+    codigo: '',
+    nombre: '',
+    precio: '',
+    stock: '',
+    descripcion: '',
+    categoria: '',
+    oferta: false,
+    descuento: 0,
+    peso: 0,
+    imagen: ''
+  });
+
+  const [categoryForm, setCategoryForm] = useState({
+    nombre: '',
+    descripcion: '',
+    imagen: '',
+    activa: true
+  });
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (!loading && !isAuthenticated) {
+      router.push('/login');
+    } else if (!loading && !isAdmin) {
       router.push('/products');
-      return;
     }
-    loadProducts();
-    loadCategories();
-  }, [isAdmin, router]);
+  }, [loading, isAuthenticated, isAdmin, router]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      loadProducts();
+      loadCategories();
+    }
+  }, [isAdmin]);
 
   const loadProducts = async () => {
     try {
@@ -33,13 +67,13 @@ export default function Admin() {
     } catch (error) {
       console.error('Error loading products:', error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   const loadCategories = async () => {
     try {
-      const response = await fetch('/api/categories');
+      const response = await fetch('/api/categories?admin=true');
       const data = await response.json();
       if (data.success) {
         setCategories(data.data);
@@ -49,147 +83,296 @@ export default function Admin() {
     }
   };
 
-  const generateProductCode = () => {
-    return 'PROD_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-  };
-
-  const handleSubmit = async (e) => {
+  const handleProductSubmit = async (e) => {
     e.preventDefault();
-    setFormError('');
-    setFormSuccess('');
-
-    const formData = new FormData(e.target);
-    
-    const productData = {
-      nombre: formData.get('nombre'),
-      precio: parseFloat(formData.get('precio')),
-      stock: parseInt(formData.get('stock')),
-      descripcion: formData.get('descripcion'),
-      categoria: formData.get('categoria'),
-      oferta: formData.get('oferta') === 'on',
-      activo: formData.get('activo') === 'on',
-      peso: parseFloat(formData.get('peso')) || 0,
-      descuento: parseInt(formData.get('descuento')) || 0
-    };
-
-    if (!editingProduct) {
-      productData.codigo = generateProductCode();
-    }
-
-    if (!productData.nombre || !productData.precio || productData.stock === undefined) {
-      setFormError('Por favor completa todos los campos requeridos');
-      return;
-    }
-
-    if (productData.precio < 0) {
-      setFormError('El precio no puede ser negativo');
-      return;
-    }
-
-    if (productData.stock < 0) {
-      setFormError('El stock no puede ser negativo');
-      return;
-    }
-
-    if (productData.descuento < 0 || productData.descuento > 100) {
-      setFormError('El descuento debe estar entre 0 y 100%');
-      return;
-    }
+    setMessage('');
 
     try {
+      const token = localStorage.getItem('token');
       const url = editingProduct 
         ? `/api/products/${editingProduct._id}`
         : '/api/products';
       
       const method = editingProduct ? 'PUT' : 'POST';
-      
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(productData),
+        body: JSON.stringify(productForm),
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
-        setFormSuccess(editingProduct ? 'Producto actualizado exitosamente' : 'Producto creado exitosamente');
-        await loadProducts();
-        
-        setTimeout(() => {
-          setShowForm(false);
-          setEditingProduct(null);
-          setFormSuccess('');
-          e.target.reset();
-        }, 1000);
+        setMessage(`✅ Producto ${editingProduct ? 'actualizado' : 'creado'} exitosamente`);
+        loadProducts();
+        resetProductForm();
       } else {
-        setFormError(data.error || 'Error al guardar el producto');
+        setMessage(`❌ ${data.error || data.message}`);
       }
     } catch (error) {
-      console.error('Error saving product:', error);
-      setFormError('Error de conexión al servidor');
+      setMessage('❌ Error al guardar el producto');
+    }
+  };
+
+  const handleCategorySubmit = async (e) => {
+    e.preventDefault();
+    setMessage('');
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setMessage('❌ No estás autenticado. Por favor inicia sesión nuevamente.');
+        return;
+      }
+
+      const url = editingCategory 
+        ? `/api/categories/${editingCategory._id}`
+        : '/api/categories';
+      
+      const method = editingCategory ? 'PUT' : 'POST';
+
+      console.log('Enviando request a:', url);
+      console.log('Método:', method);
+      console.log('Datos:', categoryForm);
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(categoryForm),
+      });
+
+      const data = await response.json();
+      console.log('Respuesta:', data);
+
+      if (data.success) {
+        setMessage(`✅ Categoría ${editingCategory ? 'actualizada' : 'creada'} exitosamente`);
+        loadCategories();
+        resetCategoryForm();
+      } else {
+        setMessage(`❌ ${data.error || data.message}`);
+      }
+    } catch (error) {
+      console.error('Error completo:', error);
+      setMessage(`❌ Error al guardar la categoría: ${error.message}`);
+    }
+  };
+
+  const deleteProduct = async (id) => {
+    if (!confirm('¿Estás seguro de eliminar este producto?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/products/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setMessage('✅ Producto eliminado exitosamente');
+        loadProducts();
+      } else {
+        setMessage('❌ Error al eliminar el producto');
+      }
+    } catch (error) {
+      setMessage('❌ Error al eliminar el producto');
+    }
+  };
+
+  const deleteCategory = async (id) => {
+    if (!confirm('¿Estás seguro de eliminar esta categoría?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setMessage('❌ No estás autenticado');
+        return;
+      }
+
+      console.log('Eliminando categoría:', id);
+
+      const response = await fetch(`/api/categories/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      console.log('Respuesta eliminación:', data);
+
+      if (data.success) {
+        setMessage('✅ Categoría eliminada exitosamente');
+        loadCategories();
+      } else {
+        setMessage(`❌ ${data.message || 'Error al eliminar la categoría'}`);
+      }
+    } catch (error) {
+      console.error('Error al eliminar:', error);
+      setMessage(`❌ Error al eliminar la categoría: ${error.message}`);
     }
   };
 
   const editProduct = (product) => {
+    console.log('Editando producto:', product);
     setEditingProduct(product);
-    setShowForm(true);
-    setFormError('');
-    setFormSuccess('');
+    setProductForm({
+      codigo: product.codigo,
+      nombre: product.nombre,
+      precio: product.precio,
+      stock: product.stock,
+      descripcion: product.descripcion || '',
+      categoria: product.categoria,
+      oferta: product.oferta || false,
+      descuento: product.descuento || 0,
+      peso: product.peso || 0,
+      imagen: product.imagen || ''
+    });
+    setShowProductForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const toggleProductStatus = async (productId, currentStatus) => {
+  const toggleProductStatus = async (product) => {
     try {
-      const response = await fetch(`/api/products/${productId}`, {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setMessage('❌ No estás autenticado');
+        return;
+      }
+
+      const newStatus = !product.activo;
+      console.log(`Cambiando estado de ${product.nombre} a:`, newStatus);
+
+      const response = await fetch(`/api/products/${product._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ activo: !currentStatus }),
+        body: JSON.stringify({
+          activo: newStatus
+        }),
       });
 
       const data = await response.json();
+
       if (data.success) {
-        await loadProducts();
+        setMessage(`✅ Producto ${newStatus ? 'activado' : 'desactivado'} exitosamente`);
+        loadProducts();
       } else {
-        alert('Error al actualizar el producto: ' + data.error);
+        setMessage(`❌ ${data.error || data.message}`);
       }
     } catch (error) {
-      console.error('Error updating product:', error);
-      alert('Error de conexión');
+      console.error('Error al cambiar estado:', error);
+      setMessage(`❌ Error: ${error.message}`);
     }
   };
 
-  const deleteProduct = async (productId) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este producto?')) return;
-    
+  const editCategory = (category) => {
+    console.log('Editando categoría:', category);
+    setEditingCategory(category);
+    setCategoryForm({
+      nombre: category.nombre,
+      descripcion: category.descripcion || '',
+      imagen: category.imagen || '',
+      activa: category.activa !== undefined ? category.activa : true
+    });
+    setShowCategoryForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const toggleCategoryStatus = async (category) => {
     try {
-      const response = await fetch(`/api/products/${productId}`, {
-        method: 'DELETE',
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        setMessage('❌ No estás autenticado');
+        return;
+      }
+
+      const newStatus = !category.activa;
+      console.log(`Cambiando estado de ${category.nombre} a:`, newStatus);
+
+      const response = await fetch(`/api/categories/${category._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          activa: newStatus
+        }),
       });
 
       const data = await response.json();
+
       if (data.success) {
-        await loadProducts();
+        setMessage(`✅ Categoría ${newStatus ? 'activada' : 'desactivada'} exitosamente`);
+        loadCategories();
       } else {
-        alert('Error al eliminar el producto: ' + data.error);
+        setMessage(`❌ ${data.error || data.message}`);
       }
     } catch (error) {
-      console.error('Error deleting product:', error);
-      alert('Error de conexión');
+      console.error('Error al cambiar estado:', error);
+      setMessage(`❌ Error: ${error.message}`);
     }
   };
 
-  const goBack = () => {
-    router.push('/products');
+  const resetProductForm = () => {
+    setProductForm({
+      codigo: '',
+      nombre: '',
+      precio: '',
+      stock: '',
+      descripcion: '',
+      categoria: '',
+      oferta: false,
+      descuento: 0,
+      peso: 0,
+      imagen: ''
+    });
+    setEditingProduct(null);
+    setShowProductForm(false);
   };
 
-  if (!user || !isAdmin) {
+  const resetCategoryForm = () => {
+    setCategoryForm({
+      nombre: '',
+      descripcion: '',
+      imagen: '',
+      activa: true
+    });
+    setEditingCategory(null);
+    setShowCategoryForm(false);
+  };
+
+  if (!isAuthenticated || loading) {
     return (
       <div className="loading-full">
         <div className="spinner"></div>
-        <p>Verificando permisos...</p>
+        <p>Cargando...</p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="loading-full">
+        <div className="spinner"></div>
+        <p>Acceso denegado...</p>
       </div>
     );
   }
@@ -197,314 +380,372 @@ export default function Admin() {
   return (
     <>
       <Head>
-        <title>Panel de Administración</title>
+        <title>Panel de Administración - Mi Tienda</title>
       </Head>
 
       <div className="admin-container">
-        <div className="admin-header">
-          <div className="admin-header-left">
-            <button className="btn-back" onClick={goBack}>
-              ← Volver a Productos
-            </button>
+        <header className="admin-header">
+          <div className="admin-header-content">
             <h1>⚙️ Panel de Administración</h1>
+            <button 
+              className="btn btn-secondary"
+              onClick={() => router.push('/products')}
+            >
+              ← Volver a la Tienda
+            </button>
           </div>
+        </header>
+
+        <div className="admin-tabs">
           <button 
-            className="btn btn-primary"
-            onClick={() => {
-              setEditingProduct(null);
-              setShowForm(true);
-              setFormError('');
-              setFormSuccess('');
-            }}
+            className={`admin-tab ${activeTab === 'products' ? 'active' : ''}`}
+            onClick={() => setActiveTab('products')}
           >
-            ➕ Agregar Producto
+            📦 Productos
+          </button>
+          <button 
+            className={`admin-tab ${activeTab === 'categories' ? 'active' : ''}`}
+            onClick={() => setActiveTab('categories')}
+          >
+            🏷️ Categorías
           </button>
         </div>
 
-        <div className="admin-stats">
-          <div className="stat-card">
-            <div className="stat-number">{products.length}</div>
-            <div className="stat-label">Total Productos</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-number">{products.filter(p => p.activo).length}</div>
-            <div className="stat-label">Productos Activos</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-number">{products.filter(p => p.oferta).length}</div>
-            <div className="stat-label">En Oferta</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-number">{products.filter(p => p.stock === 0).length}</div>
-            <div className="stat-label">Sin Stock</div>
-          </div>
-        </div>
-
-        {showForm && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h2>{editingProduct ? 'Editar Producto' : 'Agregar Producto'}</h2>
-                <button 
-                  className="close-btn"
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditingProduct(null);
-                    setFormError('');
-                    setFormSuccess('');
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-              
-              {formError && (
-                <div className="alert alert-error">
-                  {formError}
-                </div>
-              )}
-              
-              {formSuccess && (
-                <div className="alert alert-success">
-                  {formSuccess}
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="product-form">
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label className="form-label">Nombre del Producto *</label>
-                    <input
-                      type="text"
-                      name="nombre"
-                      defaultValue={editingProduct?.nombre}
-                      required
-                      placeholder="Ej: Smartphone Samsung Galaxy"
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">Precio ($) *</label>
-                    <input
-                      type="number"
-                      name="precio"
-                      step="0.01"
-                      min="0"
-                      defaultValue={editingProduct?.precio}
-                      required
-                      placeholder="0.00"
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">Stock *</label>
-                    <input
-                      type="number"
-                      name="stock"
-                      min="0"
-                      defaultValue={editingProduct?.stock || 0}
-                      required
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">Categoría *</label>
-                    <select name="categoria" defaultValue={editingProduct?.categoria || ''} required className="form-input">
-                      <option value="">Seleccionar categoría</option>
-                      {categories.map(cat => (
-                        <option key={cat._id} value={cat.nombre}>
-                          {cat.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">Peso (kg)</label>
-                    <input
-                      type="number"
-                      name="peso"
-                      step="0.01"
-                      min="0"
-                      defaultValue={editingProduct?.peso || 0}
-                      placeholder="0.00"
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">% Descuento</label>
-                    <input
-                      type="number"
-                      name="descuento"
-                      min="0"
-                      max="100"
-                      defaultValue={editingProduct?.descuento || 0}
-                      placeholder="0-100"
-                      className="form-input"
-                    />
-                  </div>
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label">Descripción</label>
-                  <textarea
-                    name="descripcion"
-                    rows="3"
-                    defaultValue={editingProduct?.descripcion}
-                    placeholder="Descripción detallada del producto..."
-                    className="form-input"
-                  ></textarea>
-                </div>
-                
-                <div className="form-checkboxes">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      name="oferta"
-                      defaultChecked={editingProduct?.oferta}
-                    />
-                    <span>¿En oferta?</span>
-                  </label>
-                  
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      name="activo"
-                      defaultChecked={editingProduct?.activo !== false}
-                    />
-                    <span>Producto activo</span>
-                  </label>
-                </div>
-                
-                <div className="form-actions">
-                  <button 
-                    type="button" 
-                    className="btn btn-secondary" 
-                    onClick={() => {
-                      setShowForm(false);
-                      setEditingProduct(null);
-                      setFormError('');
-                      setFormSuccess('');
-                    }}
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="btn btn-primary"
-                    disabled={!!formSuccess}
-                  >
-                    {editingProduct ? 'Actualizar' : 'Crear'} Producto
-                  </button>
-                </div>
-              </form>
-            </div>
+        {message && (
+          <div className={`admin-message ${message.includes('✅') ? 'success' : 'error'}`}>
+            {message}
           </div>
         )}
 
-        <div className="products-table-container">
-          {loading ? (
-            <div className="loading">
-              <div className="spinner"></div>
-              <p>Cargando productos...</p>
-            </div>
-          ) : products.length === 0 ? (
-            <div className="no-products">
-              <p>No hay productos registrados</p>
-              <button 
-                className="btn btn-primary"
-                onClick={() => {
-                  setEditingProduct(null);
-                  setShowForm(true);
-                }}
-              >
-                ➕ Crear Primer Producto
-              </button>
-            </div>
-          ) : (
-            <table className="products-table">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th>Precio</th>
-                  <th>Stock</th>
-                  <th>Categoría</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map(product => (
-                  <tr key={product._id}>
-                    <td>
-                      <div className="product-cell">
-                        <strong>{product.nombre}</strong>
-                        <small>{product.descripcion}</small>
-                        {product.descuento > 0 && (
-                          <small className="discount-info">
-                            🏷️ {product.descuento}% de descuento
-                          </small>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="price-cell">
-                        ${product.precio}
-                        {product.descuento > 0 && (
-                          <div className="discounted-price">
-                            ${(product.precio * (1 - product.descuento / 100)).toFixed(2)}
+        <div className="admin-content">
+          {activeTab === 'products' && (
+            <>
+              <div className="admin-actions">
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => setShowProductForm(!showProductForm)}
+                >
+                  {showProductForm ? '❌ Cancelar' : '➕ Nuevo Producto'}
+                </button>
+              </div>
+
+              {showProductForm && (
+                <form onSubmit={handleProductSubmit} className="admin-form">
+                  <h3>{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h3>
+                  
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label className="form-label">Código *</label>
+                      <input
+                        type="text"
+                        value={productForm.codigo}
+                        onChange={(e) => setProductForm({...productForm, codigo: e.target.value})}
+                        className="form-input"
+                        required
+                        disabled={!!editingProduct}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Nombre *</label>
+                      <input
+                        type="text"
+                        value={productForm.nombre}
+                        onChange={(e) => setProductForm({...productForm, nombre: e.target.value})}
+                        className="form-input"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Precio *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={productForm.precio}
+                        onChange={(e) => setProductForm({...productForm, precio: e.target.value})}
+                        className="form-input"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Stock *</label>
+                      <input
+                        type="number"
+                        value={productForm.stock}
+                        onChange={(e) => setProductForm({...productForm, stock: e.target.value})}
+                        className="form-input"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Categoría *</label>
+                      <select
+                        value={productForm.categoria}
+                        onChange={(e) => setProductForm({...productForm, categoria: e.target.value})}
+                        className="form-input"
+                        required
+                      >
+                        <option value="">Seleccionar...</option>
+                        {categories.map(cat => (
+                          <option key={cat._id} value={cat.nombre}>{cat.nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Descuento (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={productForm.descuento}
+                        onChange={(e) => setProductForm({...productForm, descuento: e.target.value})}
+                        className="form-input"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Peso (kg)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={productForm.peso}
+                        onChange={(e) => setProductForm({...productForm, peso: e.target.value})}
+                        className="form-input"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Imagen</label>
+                      <select
+                        value={productForm.imagen}
+                        onChange={(e) => setProductForm({...productForm, imagen: e.target.value})}
+                        className="form-input"
+                      >
+                        <option value="">Imagen automática</option>
+                        {getAvailableImages().map(img => (
+                          <option key={img} value={img}>{img}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Descripción</label>
+                    <textarea
+                      value={productForm.descripcion}
+                      onChange={(e) => setProductForm({...productForm, descripcion: e.target.value})}
+                      className="form-input"
+                      rows="3"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={productForm.oferta}
+                        onChange={(e) => setProductForm({...productForm, oferta: e.target.checked})}
+                      />
+                      <span>Marcar como oferta</span>
+                    </label>
+                  </div>
+
+                  <div className="form-actions">
+                    <button type="button" className="btn btn-secondary" onClick={resetProductForm}>
+                      Cancelar
+                    </button>
+                    <button type="submit" className="btn btn-primary">
+                      {editingProduct ? '💾 Actualizar' : '➕ Crear'} Producto
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              <div className="admin-table-container">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Nombre</th>
+                      <th>Precio</th>
+                      <th>Stock</th>
+                      <th>Categoría</th>
+                      <th>Descuento</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.map(product => (
+                      <tr key={product._id} className={!product.activo ? 'inactive-row' : ''}>
+                        <td>{product.codigo}</td>
+                        <td>{product.nombre}</td>
+                        <td>${product.precio.toFixed(2)}</td>
+                        <td>{product.stock}</td>
+                        <td>{product.categoria}</td>
+                        <td>{product.descuento > 0 ? `${product.descuento}%` : '-'}</td>
+                        <td>
+                          <button 
+                            className={`status-toggle ${product.activo ? 'active' : 'inactive'}`}
+                            onClick={() => toggleProductStatus(product)}
+                            title={product.activo ? 'Click para desactivar' : 'Click para activar'}
+                          >
+                            {product.activo ? '✓ Activo' : '✗ Inactivo'}
+                          </button>
+                        </td>
+                        <td>
+                          <div className="table-actions">
+                            <button 
+                              className="btn-icon btn-edit"
+                              onClick={() => editProduct(product)}
+                              title="Editar"
+                            >
+                              ✏️
+                            </button>
+                            <button 
+                              className="btn-icon btn-delete"
+                              onClick={() => deleteProduct(product._id)}
+                              title="Eliminar"
+                            >
+                              🗑️
+                            </button>
                           </div>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`stock-badge ${product.stock === 0 ? 'out-of-stock' : product.stock < 10 ? 'low-stock' : ''}`}>
-                        {product.stock}
-                      </span>
-                    </td>
-                    <td>{product.categoria}</td>
-                    <td>
-                      <span className={`status-badge ${product.activo ? 'active' : 'inactive'}`}>
-                        {product.activo ? 'Activo' : 'Inactivo'}
-                      </span>
-                      {product.oferta && <span className="oferta-badge">🔥 Oferta</span>}
-                    </td>
-                    <td>
-                      <div className="action-buttons">
-                        <button 
-                          className="btn-edit"
-                          onClick={() => editProduct(product)}
-                          title="Editar producto"
-                        >
-                          ✏️
-                        </button>
-                        <button 
-                          className="btn-toggle"
-                          onClick={() => toggleProductStatus(product._id, product.activo)}
-                          title={product.activo ? 'Desactivar producto' : 'Activar producto'}
-                        >
-                          {product.activo ? '❌' : '✅'}
-                        </button>
-                        <button 
-                          className="btn-delete"
-                          onClick={() => deleteProduct(product._id)}
-                          title="Eliminar producto"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'categories' && (
+            <>
+              <div className="admin-actions">
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => setShowCategoryForm(!showCategoryForm)}
+                >
+                  {showCategoryForm ? '❌ Cancelar' : '➕ Nueva Categoría'}
+                </button>
+              </div>
+
+              {showCategoryForm && (
+                <form onSubmit={handleCategorySubmit} className="admin-form">
+                  <h3>{editingCategory ? 'Editar Categoría' : 'Nueva Categoría'}</h3>
+                  
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label className="form-label">Nombre *</label>
+                      <input
+                        type="text"
+                        value={categoryForm.nombre}
+                        onChange={(e) => setCategoryForm({...categoryForm, nombre: e.target.value})}
+                        className="form-input"
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Imagen URL</label>
+                      <input
+                        type="text"
+                        value={categoryForm.imagen}
+                        onChange={(e) => setCategoryForm({...categoryForm, imagen: e.target.value})}
+                        className="form-input"
+                        placeholder="/images/category-placeholder.jpg"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Descripción</label>
+                    <textarea
+                      value={categoryForm.descripcion}
+                      onChange={(e) => setCategoryForm({...categoryForm, descripcion: e.target.value})}
+                      className="form-input"
+                      rows="3"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={categoryForm.activa}
+                        onChange={(e) => setCategoryForm({...categoryForm, activa: e.target.checked})}
+                      />
+                      <span>Categoría activa</span>
+                    </label>
+                  </div>
+
+                  <div className="form-actions">
+                    <button type="button" className="btn btn-secondary" onClick={resetCategoryForm}>
+                      Cancelar
+                    </button>
+                    <button type="submit" className="btn btn-primary">
+                      {editingCategory ? '💾 Actualizar' : '➕ Crear'} Categoría
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              <div className="admin-table-container">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Descripción</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categories.map(category => (
+                      <tr key={category._id}>
+                        <td>{category.nombre}</td>
+                        <td>{category.descripcion || '-'}</td>
+                        <td>
+                          <span className={`status-badge ${category.activa ? 'active' : 'inactive'}`}>
+                            {category.activa ? 'Activa' : 'Inactiva'}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="table-actions">
+                            <button 
+                              className="btn-icon btn-edit"
+                              onClick={() => editCategory(category)}
+                              title="Editar"
+                            >
+                              ✏️
+                            </button>
+                            <button 
+                              className="btn-icon btn-delete"
+                              onClick={() => deleteCategory(category._id)}
+                              title="Eliminar"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>
     </>
   );
+}
+
+// CRÍTICO: Deshabilitar SSR
+AdminPanel.getInitialProps = () => {
+  return {};
 }

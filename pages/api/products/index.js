@@ -8,6 +8,9 @@ export default async function handler(req, res) {
     case 'GET':
       try {
         const showAll = req.query.admin === 'true';
+        
+        // Si es admin, mostrar todos los productos
+        // Si no, solo mostrar productos activos
         const filter = showAll ? {} : { activo: true };
         
         const products = await Product.find(filter);

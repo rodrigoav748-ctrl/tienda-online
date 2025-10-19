@@ -35,7 +35,9 @@ export default function Products() {
       const response = await fetch('/api/products');
       const data = await response.json();
       if (data.success) {
-        const productsWithQuantity = data.data.map(p => ({ ...p, quantity: 1 }));
+        // IMPORTANTE: Filtrar solo productos activos para clientes
+        const activeProducts = data.data.filter(p => p.activo === true);
+        const productsWithQuantity = activeProducts.map(p => ({ ...p, quantity: 1 }));
         setProducts(productsWithQuantity);
         
         if (productsWithQuantity.length > 0) {
@@ -59,19 +61,14 @@ export default function Products() {
       const response = await fetch('/api/categories');
       const data = await response.json();
       if (data.success) {
+        // La API ya filtra solo categorías activas
         setCategories(data.data);
       } else {
-        setCategories([
-          { _id: '1', nombre: 'Electrónica' },
-          { _id: '2', nombre: 'Computación' },
-          { _id: '3', nombre: 'Hogar' }
-        ]);
+        setCategories([]);
       }
     } catch (error) {
-      setCategories([
-        { _id: '1', nombre: 'Electrónica' },
-        { _id: '2', nombre: 'Computación' }
-      ]);
+      console.error('Error loading categories:', error);
+      setCategories([]);
     }
   };
 
@@ -109,7 +106,12 @@ export default function Products() {
     
     const matchesPrice = precioFinal >= priceRange.min && precioFinal <= priceRange.max;
     
-    return matchesSearch && matchesCategories && matchesOfertas && matchesPrice;
+    // IMPORTANTE: Verificar que la categoría esté activa
+    const categoryActive = categories.some(cat => 
+      cat.nombre === product.categoria && cat.activa === true
+    );
+    
+    return matchesSearch && matchesCategories && matchesOfertas && matchesPrice && categoryActive;
   });
 
   const toggleCategory = (categoryName) => {
@@ -267,10 +269,16 @@ export default function Products() {
                     key={category._id}
                     className={`category-item ${selectedCategories.includes(category.nombre) ? 'active' : ''}`}
                     onClick={() => toggleCategory(category.nombre)}
+                    title={category.descripcion || category.nombre}
                   >
-                    {category.nombre}
+                    <span className="category-name">{category.nombre}</span>
                     {selectedCategories.includes(category.nombre) && (
                       <span className="selected-check">✓</span>
+                    )}
+                    {category.descripcion && (
+                      <div className="category-tooltip">
+                        {category.descripcion}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -525,3 +533,8 @@ function UserDropdown({ user, isAdmin }) {
     </div>
   );
 }
+
+// CRÍTICO: Deshabilitar SSR para esta página
+Products.getInitialProps = () => {
+  return {};
+};
