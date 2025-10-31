@@ -12,7 +12,7 @@ export default function Home() {
       if (isAuthenticated) {
         router.push('/products');
       } else {
-        router.push('/login');
+        router.push('/catalog');
       }
     }
   }, [isAuthenticated, loading, router]);

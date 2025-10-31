@@ -29,7 +29,6 @@ export default function AdminPanel() {
     stock: '',
     descripcion: '',
     categoria: '',
-    oferta: false,
     descuento: 0,
     peso: 0,
     imagen: ''
@@ -235,7 +234,6 @@ export default function AdminPanel() {
       stock: product.stock,
       descripcion: product.descripcion || '',
       categoria: product.categoria,
-      oferta: product.oferta || false,
       descuento: product.descuento || 0,
       peso: product.peso || 0,
       imagen: product.imagen || ''
@@ -339,7 +337,6 @@ export default function AdminPanel() {
       stock: '',
       descripcion: '',
       categoria: '',
-      oferta: false,
       descuento: 0,
       peso: 0,
       imagen: ''
@@ -384,32 +381,33 @@ export default function AdminPanel() {
       </Head>
 
       <div className="admin-container">
-        <header className="admin-header">
-          <div className="admin-header-content">
-            <h1>⚙️ Panel de Administración</h1>
+        <header className="admin-header-compact">
+          <div className="admin-header-content-compact">
+            <h1>⚙️ Admin</h1>
+            
+            <div className="admin-tabs-inline">
+              <button 
+                className={`admin-tab-inline ${activeTab === 'products' ? 'active' : ''}`}
+                onClick={() => setActiveTab('products')}
+              >
+                📦 Productos
+              </button>
+              <button 
+                className={`admin-tab-inline ${activeTab === 'categories' ? 'active' : ''}`}
+                onClick={() => setActiveTab('categories')}
+              >
+                🏷️ Categorías
+              </button>
+            </div>
+
             <button 
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={() => router.push('/products')}
             >
-              ← Volver a la Tienda
+              ← Tienda
             </button>
           </div>
         </header>
-
-        <div className="admin-tabs">
-          <button 
-            className={`admin-tab ${activeTab === 'products' ? 'active' : ''}`}
-            onClick={() => setActiveTab('products')}
-          >
-            📦 Productos
-          </button>
-          <button 
-            className={`admin-tab ${activeTab === 'categories' ? 'active' : ''}`}
-            onClick={() => setActiveTab('categories')}
-          >
-            🏷️ Categorías
-          </button>
-        </div>
 
         {message && (
           <div className={`admin-message ${message.includes('✅') ? 'success' : 'error'}`}>
@@ -435,15 +433,19 @@ export default function AdminPanel() {
                   
                   <div className="form-grid">
                     <div className="form-group">
-                      <label className="form-label">Código *</label>
+                      <label className="form-label">Código / Código de Barras *</label>
                       <input
                         type="text"
                         value={productForm.codigo}
-                        onChange={(e) => setProductForm({...productForm, codigo: e.target.value})}
+                        onChange={(e) => setProductForm({...productForm, codigo: e.target.value.toUpperCase()})}
                         className="form-input"
                         required
                         disabled={!!editingProduct}
+                        placeholder="PROD001 o código de barras"
                       />
+                      <small style={{color: '#666', fontSize: '0.85rem'}}>
+                        Acepta códigos de productos o códigos de barras
+                      </small>
                     </div>
 
                     <div className="form-group">
@@ -541,17 +543,6 @@ export default function AdminPanel() {
                       className="form-input"
                       rows="3"
                     />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="checkbox-label">
-                      <input
-                        type="checkbox"
-                        checked={productForm.oferta}
-                        onChange={(e) => setProductForm({...productForm, oferta: e.target.checked})}
-                      />
-                      <span>Marcar como oferta</span>
-                    </label>
                   </div>
 
                   <div className="form-actions">

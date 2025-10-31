@@ -189,6 +189,40 @@ export default function Products() {
     localStorage.setItem('cart', JSON.stringify(newCart));
   };
 
+  const removeFromCart = (itemId) => {
+    const newCart = cart.filter(item => item.id !== itemId);
+    setCart(newCart);
+    localStorage.setItem('cart', JSON.stringify(newCart));
+  };
+
+  const clearCart = () => {
+    if (confirm('¿Estás seguro de vaciar el carrito?')) {
+      setCart([]);
+      localStorage.removeItem('cart');
+    }
+  };
+
+  const updateCartItemQuantity = (itemId, newQuantity) => {
+    if (newQuantity < 1) {
+      removeFromCart(itemId);
+      return;
+    }
+
+    const item = cart.find(i => i.id === itemId);
+    if (item && newQuantity > item.stock) {
+      alert(`Solo hay ${item.stock} unidades disponibles`);
+      return;
+    }
+
+    const newCart = cart.map(item =>
+      item.id === itemId
+        ? { ...item, quantity: newQuantity }
+        : item
+    );
+    setCart(newCart);
+    localStorage.setItem('cart', JSON.stringify(newCart));
+  };
+
   const proceedToPayment = () => {
     if (cart.length === 0) return;
     router.push('/checkout');
@@ -227,28 +261,30 @@ export default function Products() {
     <>
       <Head>
         <title>Productos - Mi Tienda</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5" />
+        <meta name="description" content="Explora nuestro catálogo de productos" />
       </Head>
 
       <div className="store-layout">
-        <header className="store-header">
-          <div className="header-left">
-            <h1 className="store-title">🛍️ Productos</h1>
+        <header className="store-header-compact">
+          <div className="header-compact-left">
+            <h1 className="store-title-compact">🛍️ Tienda</h1>
           </div>
           
-          <div className="header-center">
-            <div className="search-bar">
+          <div className="header-compact-center">
+            <div className="search-bar-compact">
               <input
                 type="text"
-                placeholder="Buscar productos..."
+                placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
+                className="search-input-compact"
               />
               <span className="search-icon">🔍</span>
             </div>
           </div>
 
-          <div className="header-right">
+          <div className="header-compact-right">
             <UserDropdown user={user} isAdmin={isAdmin} />
           </div>
         </header>
@@ -346,7 +382,12 @@ export default function Products() {
                       </div>
                       
                       <div className="product-info">
-                        <h3 className="product-name">{product.nombre}</h3>
+                        <h3 
+                          className="product-name"
+                          title={product.descripcion || product.nombre}
+                        >
+                          {product.nombre}
+                        </h3>
                         
                         <div className="product-price">
                           <span className="current-price">${precioFinal.toFixed(2)}</span>
@@ -366,9 +407,19 @@ export default function Products() {
                           {product.stock} en stock
                         </div>
 
-                        <p className="product-description">
-                          {product.descripcion}
-                        </p>
+                        {product.descripcion && (
+                          <p className="product-description">
+                            {product.descripcion}
+                          </p>
+                        )}
+
+                        {product.descripcion && (
+                          <div className="product-tooltip">
+                            <strong>{product.nombre}</strong>
+                            <p>{product.descripcion}</p>
+                            {product.categoria && <small>Categoría: {product.categoria}</small>}
+                          </div>
+                        )}
 
                         <div className="product-actions">
                           <div className="quantity-selector">
@@ -409,8 +460,8 @@ export default function Products() {
 
           <aside className="cart-sidebar">
             <div className="cart-header">
-              <h3>🛒 Tu Carrito</h3>
-              <div className="cart-items-count">{cart.length} items</div>
+              <h3>🛒 Carrito</h3>
+              <div className="cart-items-count">{cart.length}</div>
             </div>
 
             {cart.length === 0 ? (
@@ -435,14 +486,50 @@ export default function Products() {
                       </div>
                       <div className="item-details">
                         <div className="item-name">{item.name}</div>
-                        <div className="item-price">${item.price.toFixed(2)} c/u</div>
-                        <div className="item-quantity">Cant: {item.quantity}</div>
+                        <div className="item-price">${item.price.toFixed(2)}</div>
+                        
+                        <div className="cart-quantity-control">
+                          <button 
+                            className="cart-qty-btn"
+                            onClick={() => updateCartItemQuantity(item.id, item.quantity - 1)}
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            className="cart-qty-input"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 1;
+                              updateCartItemQuantity(item.id, val);
+                            }}
+                            min="1"
+                            max={item.stock}
+                          />
+                          <button 
+                            className="cart-qty-btn"
+                            onClick={() => updateCartItemQuantity(item.id, item.quantity + 1)}
+                            disabled={item.quantity >= item.stock}
+                          >
+                            +
+                          </button>
+                        </div>
+
                         {item.discount > 0 && (
                           <div className="item-discount">-{item.discount}%</div>
                         )}
                       </div>
-                      <div className="item-total">
-                        ${(item.price * item.quantity).toFixed(2)}
+                      <div className="item-actions">
+                        <div className="item-total">
+                          ${(item.price * item.quantity).toFixed(2)}
+                        </div>
+                        <button 
+                          className="btn-remove-item"
+                          onClick={() => removeFromCart(item.id)}
+                          title="Eliminar"
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -462,10 +549,17 @@ export default function Products() {
                   </div>
 
                   <button 
+                    className="btn btn-secondary btn-block btn-clear-cart"
+                    onClick={clearCart}
+                  >
+                    Vaciar Carrito
+                  </button>
+
+                  <button 
                     className="btn btn-primary checkout-btn"
                     onClick={proceedToPayment}
                   >
-                    Proceder al Pago ›
+                    Proceder al Pago →
                   </button>
                 </div>
               </>
