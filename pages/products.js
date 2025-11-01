@@ -403,8 +403,11 @@ export default function Products() {
                         )}
 
                         <div className="product-stock">
-                          <span className="stock-indicator"></span>
+                          <span className={`stock-indicator ${product.stock <= 10 ? 'low-stock' : ''}`}></span>
                           {product.stock} en stock
+                          {product.stock <= 10 && product.stock > 0 && (
+                            <span className="low-stock-badge">¡Quedan pocos!</span>
+                          )}
                         </div>
 
                         {product.descripcion && (
@@ -422,19 +425,19 @@ export default function Products() {
                         )}
 
                         <div className="product-actions">
-                          <div className="quantity-selector">
+                          <div className="quantity-selector-full">
                             <button 
-                              className="quantity-btn"
+                              className="quantity-btn-full"
                               onClick={() => updateQuantity(product._id, (product.quantity || 1) - 1)}
                               disabled={(product.quantity || 1) <= 1}
                             >
                               -
                             </button>
-                            <span className="quantity-number">
+                            <span className="quantity-number-full">
                               {product.quantity || 1}
                             </span>
                             <button 
-                              className="quantity-btn"
+                              className="quantity-btn-full"
                               onClick={() => updateQuantity(product._id, (product.quantity || 1) + 1)}
                               disabled={(product.quantity || 1) >= product.stock}
                             >
@@ -443,7 +446,7 @@ export default function Products() {
                           </div>
 
                           <button 
-                            className="btn btn-primary add-to-cart-btn"
+                            className="btn btn-primary add-to-cart-btn-full"
                             onClick={() => addToCart(product)}
                             disabled={product.stock === 0}
                           >
@@ -577,8 +580,7 @@ function UserDropdown({ user, isAdmin }) {
   const router = useRouter();
 
   const handleLogout = () => {
-    logout();
-    setIsOpen(false);
+    logout(); // Ya no necesitamos setIsOpen(false) porque redirige
   };
 
   const goToProfile = () => {

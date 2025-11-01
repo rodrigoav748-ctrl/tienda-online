@@ -8,6 +8,8 @@ export default function Catalog() {
   const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [showOfertas, setShowOfertas] = useState(false);
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 10000 });
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -22,7 +24,17 @@ export default function Catalog() {
       const data = await response.json();
       if (data.success) {
         const activeProducts = data.data.filter(p => p.activo === true);
-        setProducts(activeProducts);
+        const productsWithQuantity = activeProducts.map(p => ({ ...p, quantity: 1 }));
+        setProducts(productsWithQuantity);
+        
+        if (productsWithQuantity.length > 0) {
+          const prices = productsWithQuantity.map(p => 
+            p.descuento > 0 ? calcularPrecioConDescuento(p.precio, p.descuento) : p.precio
+          );
+          const minPrice = Math.min(...prices);
+          const maxPrice = Math.max(...prices);
+          setPriceRange({ min: minPrice, max: maxPrice });
+        }
       }
     } catch (error) {
       console.error('Error loading products:', error);
@@ -40,28 +52,38 @@ export default function Catalog() {
       }
     } catch (error) {
       console.error('Error loading categories:', error);
+      setCategories([]);
     }
+  };
+
+  const calcularPrecioConDescuento = (precioOriginal, descuento) => {
+    return precioOriginal * (1 - descuento / 100);
   };
 
   const getPrecioFinal = (product) => {
     if (product.descuento > 0) {
-      return product.precio * (1 - product.descuento / 100);
+      return calcularPrecioConDescuento(product.precio, product.descuento);
     }
     return product.precio;
   };
 
   const filteredProducts = products.filter(product => {
+    const precioFinal = getPrecioFinal(product);
     const matchesSearch = product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          product.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategories = selectedCategories.length === 0 || 
                             selectedCategories.includes(product.categoria);
     
+    const matchesOfertas = !showOfertas || product.oferta || product.descuento > 0;
+    
+    const matchesPrice = precioFinal >= priceRange.min && precioFinal <= priceRange.max;
+    
     const categoryActive = categories.some(cat => 
       cat.nombre === product.categoria && cat.activa === true
     );
     
-    return matchesSearch && matchesCategories && categoryActive;
+    return matchesSearch && matchesCategories && matchesOfertas && matchesPrice && categoryActive;
   });
 
   const toggleCategory = (categoryName) => {
@@ -70,6 +92,33 @@ export default function Catalog() {
         ? prev.filter(c => c !== categoryName)
         : [...prev, categoryName]
     );
+  };
+
+  const resetFilters = () => {
+    setSelectedCategories([]);
+    setShowOfertas(false);
+    setSearchTerm('');
+    
+    if (products.length > 0) {
+      const prices = products.map(p => getPrecioFinal(p));
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      setPriceRange({ min: minPrice, max: maxPrice });
+    }
+  };
+
+  const updateQuantity = (productId, newQuantity) => {
+    if (newQuantity < 1) return;
+    
+    setProducts(prev => prev.map(product => 
+      product._id === productId 
+        ? { ...product, quantity: newQuantity }
+        : product
+    ));
+  };
+
+  const handleAddToCart = (product) => {
+    router.push('/login?redirect=/products');
   };
 
   const goToLogin = () => {
@@ -93,56 +142,89 @@ export default function Catalog() {
         <meta name="description" content="Explora nuestro catálogo de productos" />
       </Head>
 
-      <div className="catalog-layout">
-        <header className="catalog-header">
-          <div className="catalog-header-content">
-            <h1>🛍️ Catálogo de Productos</h1>
-            
-            <div className="catalog-search">
+      <div className="store-layout">
+        <header className="store-header-compact">
+          <div className="header-compact-left">
+            <h1 className="store-title-compact">🛍️ Catálogo</h1>
+          </div>
+          
+          <div className="header-compact-center">
+            <div className="search-bar-compact">
               <input
                 type="text"
-                placeholder="Buscar productos..."
+                placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input-compact"
               />
+              <span className="search-icon">🔍</span>
             </div>
+          </div>
 
-            <button className="btn btn-primary" onClick={goToLogin}>
+          <div className="header-compact-right">
+            <button className="btn btn-primary btn-sm" onClick={goToLogin}>
               🔐 Iniciar Sesión
             </button>
           </div>
         </header>
 
-        <div className="catalog-main">
-          <aside className="catalog-sidebar">
-            <h3>🏷️ Categorías</h3>
-            <div className="categories-list">
-              <div 
-                className={`category-item ${selectedCategories.length === 0 ? 'active' : ''}`}
-                onClick={() => setSelectedCategories([])}
-              >
-                Todas
-              </div>
-              {categories.map(category => (
-                <div
-                  key={category._id}
-                  className={`category-item ${selectedCategories.includes(category.nombre) ? 'active' : ''}`}
-                  onClick={() => toggleCategory(category.nombre)}
+        <div className="store-main">
+          <aside className="categories-sidebar">
+            <div className="sidebar-section">
+              <h3>🏷️ Categorías</h3>
+              <div className="categories-list">
+                <div 
+                  className={`category-item ${selectedCategories.length === 0 ? 'active' : ''}`}
+                  onClick={() => setSelectedCategories([])}
                 >
-                  {category.nombre}
-                  {selectedCategories.includes(category.nombre) && (
-                    <span className="selected-check">✓</span>
-                  )}
+                  Todas las categorías
                 </div>
-              ))}
+                {categories.map(category => (
+                  <div
+                    key={category._id}
+                    className={`category-item ${selectedCategories.includes(category.nombre) ? 'active' : ''}`}
+                    onClick={() => toggleCategory(category.nombre)}
+                    title={category.descripcion || category.nombre}
+                  >
+                    <span className="category-name">{category.nombre}</span>
+                    {selectedCategories.includes(category.nombre) && (
+                      <span className="selected-check">✓</span>
+                    )}
+                    {category.descripcion && (
+                      <div className="category-tooltip">
+                        {category.descripcion}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="sidebar-section">
+              <h3>🎯 Filtros</h3>
+              <div className="filter-group">
+                <label className="filter-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={showOfertas}
+                    onChange={(e) => setShowOfertas(e.target.checked)}
+                  />
+                  <span>🔥 Solo ofertas</span>
+                </label>
+              </div>
+              
+              <button className="btn btn-secondary btn-sm" onClick={resetFilters}>
+                🔄 Limpiar filtros
+              </button>
             </div>
           </aside>
 
-          <main className="catalog-products">
-            <div className="catalog-products-header">
-              <h2>Productos Disponibles</h2>
-              <p>{filteredProducts.length} productos</p>
+          <main className="products-main">
+            <div className="products-header">
+              <h2>Nuestros Productos</h2>
+              <div className="products-stats">
+                <span>{filteredProducts.length} productos</span>
+              </div>
             </div>
 
             {filteredProducts.length === 0 ? (
@@ -150,6 +232,9 @@ export default function Catalog() {
                 <div className="no-products-icon">😔</div>
                 <h3>No hay productos</h3>
                 <p>No encontramos productos con los filtros seleccionados</p>
+                <button className="btn btn-primary" onClick={resetFilters}>
+                  Mostrar todos los productos
+                </button>
               </div>
             ) : (
               <div className="products-grid">
@@ -168,15 +253,20 @@ export default function Catalog() {
                             e.target.src = getProductImage(product);
                           }}
                         />
-                        {tieneDescuento && (
+                        {(product.oferta || tieneDescuento) && (
                           <div className="product-badge">
-                            -{product.descuento}%
+                            {tieneDescuento ? `-${product.descuento}%` : 'OFERTA'}
                           </div>
                         )}
                       </div>
                       
                       <div className="product-info">
-                        <h3 className="product-name">{product.nombre}</h3>
+                        <h3 
+                          className="product-name"
+                          title={product.descripcion || product.nombre}
+                        >
+                          {product.nombre}
+                        </h3>
                         
                         <div className="product-price">
                           <span className="current-price">${precioFinal.toFixed(2)}</span>
@@ -193,9 +283,9 @@ export default function Catalog() {
 
                         <div className="product-stock">
                           <span className={`stock-indicator ${product.stock <= 10 ? 'low-stock' : ''}`}></span>
-                          {product.stock} disponibles
+                          {product.stock} en stock
                           {product.stock <= 10 && product.stock > 0 && (
-                            <span className="low-stock-badge">¡Pocos!</span>
+                            <span className="low-stock-badge">¡Quedan pocos!</span>
                           )}
                         </div>
 
@@ -205,12 +295,43 @@ export default function Catalog() {
                           </p>
                         )}
 
-                        <button 
-                          className="btn btn-primary btn-block"
-                          onClick={goToLogin}
-                        >
-                          Iniciar sesión para comprar
-                        </button>
+                        {product.descripcion && (
+                          <div className="product-tooltip">
+                            <strong>{product.nombre}</strong>
+                            <p>{product.descripcion}</p>
+                            {product.categoria && <small>Categoría: {product.categoria}</small>}
+                          </div>
+                        )}
+
+                        <div className="product-actions">
+                          <div className="quantity-selector-full">
+                            <button 
+                              className="quantity-btn-full"
+                              onClick={() => updateQuantity(product._id, (product.quantity || 1) - 1)}
+                              disabled={(product.quantity || 1) <= 1}
+                            >
+                              -
+                            </button>
+                            <span className="quantity-number-full">
+                              {product.quantity || 1}
+                            </span>
+                            <button 
+                              className="quantity-btn-full"
+                              onClick={() => updateQuantity(product._id, (product.quantity || 1) + 1)}
+                              disabled={(product.quantity || 1) >= product.stock}
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <button 
+                            className="btn btn-primary add-to-cart-btn-full"
+                            onClick={() => handleAddToCart(product)}
+                            disabled={product.stock === 0}
+                          >
+                            {product.stock === 0 ? 'Sin Stock' : '🔐 Iniciar sesión'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -218,21 +339,20 @@ export default function Catalog() {
               </div>
             )}
           </main>
-        </div>
 
-        <div className="catalog-login-banner">
-          <div className="banner-content">
-            <h2>¿Listo para comprar?</h2>
-            <p>Inicia sesión o crea una cuenta para agregar productos al carrito</p>
-            <div className="banner-actions">
-              <button className="btn btn-primary btn-lg" onClick={goToLogin}>
+          <aside className="cart-sidebar">
+            <div className="cart-header">
+              <h3>🛒 Carrito</h3>
+            </div>
+
+            <div className="cart-empty">
+              <div className="empty-icon">🔐</div>
+              <p>Inicia sesión para agregar productos</p>
+              <button className="btn btn-primary" onClick={goToLogin}>
                 Iniciar Sesión
               </button>
-              <button className="btn btn-secondary btn-lg" onClick={() => router.push('/register')}>
-                Crear Cuenta
-              </button>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </>

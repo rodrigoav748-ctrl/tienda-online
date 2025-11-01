@@ -85,7 +85,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('user');
     localStorage.removeItem('cart');
     setUser(null);
-    router.push('/login');
+    router.push('/catalog'); // ← CAMBIADO: redirige a catálogo en vez de login
   };
 
   const updateProfile = async (profileData) => {
