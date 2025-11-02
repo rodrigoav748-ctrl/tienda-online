@@ -34,6 +34,23 @@ export default function AdminPanel() {
     imagen: ''
   });
 
+  const [autoGenerateCode, setAutoGenerateCode] = useState(true);
+
+  const generateProductCode = () => {
+    const timestamp = Date.now().toString().slice(-8);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `PROD${timestamp}${random}`.toUpperCase();
+  };
+
+  useEffect(() => {
+    if (autoGenerateCode && !editingProduct) {
+      setProductForm(prev => ({
+        ...prev,
+        codigo: generateProductCode()
+      }));
+    }
+  }, [autoGenerateCode, editingProduct]);
+
   const [categoryForm, setCategoryForm] = useState({
     nombre: '',
     descripcion: '',

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
 
 export default function Account() {
-  const { user, updateProfile, changePassword, logout, isAuthenticated, loading } = useAuth();
+  const { user, updateProfile, changePassword, logout, isAuthenticated, loading, isAdmin } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('profile');
   const [saving, setSaving] = useState(false);
@@ -28,7 +28,6 @@ export default function Account() {
     confirmPassword: ''
   });
 
-  // Actualizar datos cuando user cambie
   useEffect(() => {
     if (user) {
       setProfileData({
@@ -45,7 +44,6 @@ export default function Account() {
     }
   }, [user]);
 
-  // Redirigir si no está autenticado (solo en cliente)
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push('/login');
@@ -78,6 +76,12 @@ export default function Account() {
       return;
     }
 
+    if (passwordData.newPassword.length < 6) {
+      setMessage('❌ La contraseña debe tener al menos 6 caracteres');
+      setSaving(false);
+      return;
+    }
+
     const result = await changePassword(passwordData.currentPassword, passwordData.newPassword);
     
     if (result.success) {
@@ -93,7 +97,6 @@ export default function Account() {
     setSaving(false);
   };
 
-  // Mostrar loading mientras verifica autenticación
   if (loading || !isAuthenticated) {
     return (
       <div className="loading-full">
@@ -109,97 +112,101 @@ export default function Account() {
         <title>Mi Cuenta - Mi Tienda</title>
       </Head>
 
-      <div className="account-container">
-        <div className="account-header">
-          <div className="account-header-top">
-            <button className="btn-back" onClick={() => router.push('/products')}>
-              ← Volver a Productos
-            </button>
+      <div className="admin-container">
+        <header className="admin-header-compact">
+          <div className="admin-header-content-compact">
             <h1>👤 Mi Cuenta</h1>
-          </div>
-          
-          <div className="account-stats">
-            <div className="stat-card">
-              <div className="stat-number">{user.rol}</div>
-              <div className="stat-label">Rol</div>
+            
+            <div className="admin-tabs-inline">
+              <button 
+                className={`admin-tab-inline ${activeTab === 'profile' ? 'active' : ''}`}
+                onClick={() => setActiveTab('profile')}
+              >
+                📝 Perfil
+              </button>
+              <button 
+                className={`admin-tab-inline ${activeTab === 'password' ? 'active' : ''}`}
+                onClick={() => setActiveTab('password')}
+              >
+                🔒 Contraseña
+              </button>
+              <button 
+                className="admin-tab-inline logout-tab"
+                onClick={logout}
+              >
+                🚪 Cerrar Sesión
+              </button>
             </div>
-            <div className="stat-card">
-              <div className="stat-number">
-                {new Date(user.fecha_registro).toLocaleDateString()}
-              </div>
-              <div className="stat-label">Miembro desde</div>
+
+            <button 
+              className="btn btn-secondary btn-sm"
+              onClick={() => router.push('/products')}
+            >
+              ← Tienda
+            </button>
+          </div>
+        </header>
+
+        <div className="admin-content">
+          {message && (
+            <div className={`admin-message ${message.includes('✅') ? 'success' : 'error'}`}>
+              {message}
             </div>
-          </div>
-        </div>
+          )}
 
-        <div className="account-tabs">
-          <button 
-            className={`tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => setActiveTab('profile')}
-          >
-            📝 Perfil
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'password' ? 'active' : ''}`}
-            onClick={() => setActiveTab('password')}
-          >
-            🔒 Contraseña
-          </button>
-          <button 
-            className="tab-btn logout-btn"
-            onClick={logout}
-          >
-            🚪 Cerrar Sesión
-          </button>
-        </div>
-
-        {message && (
-          <div className={`message ${message.includes('✅') ? 'success' : 'error'}`}>
-            {message}
-          </div>
-        )}
-
-        <div className="account-content">
-          {activeTab === 'profile' && (
-            <form onSubmit={handleProfileUpdate} className="account-form">
-              <div className="form-grid">
-                <div className="form-group">
-                  <label className="form-label">Nombre Completo *</label>
-                  <input
-                    type="text"
-                    value={profileData.nombre}
-                    onChange={(e) => setProfileData({...profileData, nombre: e.target.value})}
-                    className="form-input"
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Email *</label>
-                  <input
-                    type="email"
-                    value={profileData.email}
-                    onChange={(e) => setProfileData({...profileData, email: e.target.value})}
-                    className="form-input"
-                    required
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Teléfono</label>
-                  <input
-                    type="tel"
-                    value={profileData.telefono}
-                    onChange={(e) => setProfileData({...profileData, telefono: e.target.value})}
-                    className="form-input"
-                  />
-                </div>
+          <div className="account-card">
+            <div className="account-info-header">
+              <div className="user-avatar-large">👤</div>
+              <div className="user-info">
+                <h2>{user.nombre}</h2>
+                <p className="user-email">{user.email}</p>
+                <span className={`role-badge role-${user.rol}`}>{user.rol}</span>
               </div>
+            </div>
 
-              <div className="form-section">
-                <h3>📮 Dirección</h3>
+            {activeTab === 'profile' && (
+              <form onSubmit={handleProfileUpdate} className="admin-form">
+                <h3>Información Personal</h3>
+                
                 <div className="form-grid">
                   <div className="form-group">
+                    <label className="form-label">Nombre Completo *</label>
+                    <input
+                      type="text"
+                      value={profileData.nombre}
+                      onChange={(e) => setProfileData({...profileData, nombre: e.target.value})}
+                      className="form-input"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Email *</label>
+                    <input
+                      type="email"
+                      value={profileData.email}
+                      onChange={(e) => setProfileData({...profileData, email: e.target.value})}
+                      className="form-input"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Teléfono</label>
+                    <input
+                      type="tel"
+                      value={profileData.telefono}
+                      onChange={(e) => setProfileData({...profileData, telefono: e.target.value})}
+                      className="form-input"
+                      placeholder="+56 9 1234 5678"
+                    />
+                  </div>
+                </div>
+
+                <h3 style={{marginTop: '2rem'}}>📮 Dirección</h3>
+                
+                <div className="form-grid">
+                  <div className="form-group" style={{gridColumn: '1 / -1'}}>
                     <label className="form-label">Calle</label>
                     <input
                       type="text"
@@ -209,6 +216,7 @@ export default function Account() {
                         direccion: {...profileData.direccion, calle: e.target.value}
                       })}
                       className="form-input"
+                      placeholder="Av. Principal 123"
                     />
                   </div>
 
@@ -222,6 +230,7 @@ export default function Account() {
                         direccion: {...profileData.direccion, ciudad: e.target.value}
                       })}
                       className="form-input"
+                      placeholder="Santiago"
                     />
                   </div>
 
@@ -235,6 +244,7 @@ export default function Account() {
                         direccion: {...profileData.direccion, pais: e.target.value}
                       })}
                       className="form-input"
+                      placeholder="Chile"
                     />
                   </div>
 
@@ -248,65 +258,89 @@ export default function Account() {
                         direccion: {...profileData.direccion, codigo_postal: e.target.value}
                       })}
                       className="form-input"
+                      placeholder="8320000"
                     />
                   </div>
                 </div>
-              </div>
 
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? 'Guardando...' : '💾 Guardar Cambios'}
-              </button>
-            </form>
-          )}
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                    {saving ? 'Guardando...' : '💾 Guardar Cambios'}
+                  </button>
+                </div>
+              </form>
+            )}
 
-          {activeTab === 'password' && (
-            <form onSubmit={handlePasswordChange} className="account-form">
-              <div className="form-group">
-                <label className="form-label">Contraseña Actual *</label>
-                <input
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-                  className="form-input"
-                  required
-                />
-              </div>
+            {activeTab === 'password' && (
+              <form onSubmit={handlePasswordChange} className="admin-form">
+                <h3>Cambiar Contraseña</h3>
+                
+                <div className="form-grid">
+                  <div className="form-group" style={{gridColumn: '1 / -1'}}>
+                    <label className="form-label">Contraseña Actual *</label>
+                    <input
+                      type="password"
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                      className="form-input"
+                      required
+                      placeholder="Tu contraseña actual"
+                    />
+                  </div>
 
-              <div className="form-group">
-                <label className="form-label">Nueva Contraseña *</label>
-                <input
-                  type="password"
-                  value={passwordData.newPassword}
-                  onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-                  className="form-input"
-                  required
-                  minLength="6"
-                />
-              </div>
+                  <div className="form-group">
+                    <label className="form-label">Nueva Contraseña *</label>
+                    <input
+                      type="password"
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                      className="form-input"
+                      required
+                      minLength="6"
+                      placeholder="Mínimo 6 caracteres"
+                    />
+                  </div>
 
-              <div className="form-group">
-                <label className="form-label">Confirmar Nueva Contraseña *</label>
-                <input
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                  className="form-input"
-                  required
-                />
-              </div>
+                  <div className="form-group">
+                    <label className="form-label">Confirmar Nueva Contraseña *</label>
+                    <input
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                      className="form-input"
+                      required
+                      placeholder="Repite la nueva contraseña"
+                    />
+                  </div>
+                </div>
 
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? 'Cambiando...' : '🔒 Cambiar Contraseña'}
-              </button>
-            </form>
-          )}
+                <div className="password-requirements">
+                  <h4>Requisitos de contraseña:</h4>
+                  <ul>
+                    <li className={passwordData.newPassword.length >= 6 ? 'valid' : ''}>
+                      Mínimo 6 caracteres
+                    </li>
+                    <li className={passwordData.newPassword === passwordData.confirmPassword && passwordData.newPassword ? 'valid' : ''}>
+                      Las contraseñas coinciden
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={saving}>
+                    {saving ? 'Cambiando...' : '🔒 Cambiar Contraseña'}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
         </div>
       </div>
     </>
   );
 }
 
-// CRÍTICO: Deshabilitar SSR para esta página
+// Deshabilitar SSR
 Account.getInitialProps = () => {
   return {};
 };
