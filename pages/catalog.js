@@ -163,7 +163,7 @@ export default function Catalog() {
 
           <div className="header-compact-right">
             <button className="btn btn-primary btn-sm" onClick={goToLogin}>
-              🔐 Iniciar Sesión
+                Iniciar Sesión
             </button>
           </div>
         </header>
@@ -346,7 +346,7 @@ export default function Catalog() {
             </div>
 
             <div className="cart-empty">
-              <div className="empty-icon">🔐</div>
+              <div className="empty-icon"></div>
               <p>Inicia sesión para agregar productos</p>
               <button className="btn btn-primary" onClick={goToLogin}>
                 Iniciar Sesión
