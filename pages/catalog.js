@@ -329,7 +329,7 @@ export default function Catalog() {
                             onClick={() => handleAddToCart(product)}
                             disabled={product.stock === 0}
                           >
-                            {product.stock === 0 ? 'Sin Stock' : '🔐 Iniciar sesión'}
+                            {product.stock === 0 ? 'Sin Stock' : ' Iniciar sesión'}
                           </button>
                         </div>
                       </div>

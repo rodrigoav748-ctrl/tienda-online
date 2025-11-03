@@ -450,7 +450,7 @@ export default function Products() {
                             onClick={() => addToCart(product)}
                             disabled={product.stock === 0}
                           >
-                            {product.stock === 0 ? 'Sin Stock' : '🛒 Agregar'}
+                            {product.stock === 0 ? 'Sin Stock' : ' Agregar'}
                           </button>
                         </div>
                       </div>
