@@ -46,7 +46,6 @@ next-env.d.ts
 .pnp.js
 
 # Environment variables
-.env*.local
 .env
 
 # Production
