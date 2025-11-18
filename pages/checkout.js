@@ -10,6 +10,9 @@ export default function Checkout() {
   const [orderComplete, setOrderComplete] = useState(false);
   const router = useRouter();
 
+  // --- 1. Cálculos de la Orden ---
+  
+  // Obtener el carrito y verificar autenticación
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/login?redirect=checkout');
@@ -24,6 +27,7 @@ export default function Checkout() {
     setCart(JSON.parse(savedCart));
   }, [isAuthenticated, router]);
 
+  // Totales de la compra
   const cartTotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   
   const subtotalSinDescuento = cart.reduce((total, item) => {
@@ -33,8 +37,11 @@ export default function Checkout() {
   
   const ahorroTotal = subtotalSinDescuento - cartTotal;
   
+  // Asumiendo IGV (IVA) del 18%
   const tax = cartTotal * 0.18;
   const finalTotal = cartTotal + tax;
+
+  // --- 2. Acciones de la Orden ---
 
   const cancelOrder = () => {
     localStorage.removeItem('cart');
@@ -42,11 +49,34 @@ export default function Checkout() {
   };
 
   const processPayment = async () => {
+    if (!user) return; // Si no hay usuario, salir
+    
     setProcessing(true);
     
+    // Generar datos necesarios para la boleta
+    const orderId = (Date.now()).toString().slice(-8); // Un ID simple y temporal
+    const orderDate = new Date().toLocaleDateString();
+
+    const orderData = {
+        orderId,
+        orderDate,
+        user: { 
+            nombre: user.nombre, 
+            email: user.email // ¡El email para enviar la boleta!
+        },
+        cart,
+        cartTotal, // Subtotal con descuento
+        subtotalSinDescuento,
+        ahorroTotal,
+        tax,
+        finalTotal
+    };
+
     try {
+      // Simulación de procesamiento de pago
       await new Promise(resolve => setTimeout(resolve, 2000));
       
+      // 1. Actualización de Stock
       const updatePromises = cart.map(item => 
         fetch('/api/products/update-stock', {
           method: 'POST',
@@ -62,21 +92,42 @@ export default function Checkout() {
 
       await Promise.all(updatePromises);
       
-      localStorage.removeItem('cart');
+      // 2. Envío de Boleta por Correo
+      try {
+        const emailResponse = await fetch('/api/email/send-receipt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderData }),
+        });
+        
+        if (emailResponse.ok) {
+            console.log('Boleta enviada por correo exitosamente.');
+        } else {
+            console.warn('Advertencia: El API de envío de correo retornó un error, pero la compra se completó.');
+        }
+      } catch (emailError) {
+          // No detenemos la redirección si el envío de correo falla
+          console.error('Error FATAL al contactar el API de envío de correo:', emailError);
+      }
       
+      // 3. Finalización de la Orden en el cliente
+      localStorage.removeItem('cart');
       setOrderComplete(true);
       
+      // Redirigir después de 3 segundos
       setTimeout(() => {
         router.push('/products');
       }, 3000);
       
     } catch (error) {
-      console.error('Error processing payment:', error);
-      alert('Error al procesar el pago. Intenta nuevamente.');
+      console.error('Error processing payment or stock update:', error);
+      alert('Error al procesar el pago o actualizar stock. Intenta nuevamente.');
     } finally {
       setProcessing(false);
     }
   };
+
+  // --- 3. Renderizado de la Vista ---
 
   if (orderComplete) {
     return (
@@ -88,7 +139,7 @@ export default function Checkout() {
         <div className="order-complete">
           <div className="success-icon">✅</div>
           <h1>¡Pago Completado Exitosamente!</h1>
-          <p>Tu orden ha sido procesada y el stock ha sido actualizado.</p>
+          <p>Tu orden ha sido procesada y el stock actualizado. La boleta se ha enviado a tu correo electrónico (**{user?.email}**).</p>
           <p>Serás redirigido a la tienda en unos segundos...</p>
         </div>
       </div>
@@ -183,9 +234,9 @@ export default function Checkout() {
             <button 
               className="btn btn-primary"
               onClick={processPayment}
-              disabled={processing}
+              disabled={processing || cart.length === 0}
             >
-              {processing ? 'Procesando...' : '✅ Aceptar Pago'}
+              {processing ? 'Procesando...' : '✅ Aceptar Pago y Enviar Boleta'}
             </button>
           </div>
         </div>
