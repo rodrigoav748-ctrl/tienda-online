@@ -1,11 +1,19 @@
-import { useState, useRef } from 'react';
+// components/ImageUploader.js - VERSIÓN CORREGIDA PARA BUILD
+import { useState, useRef, useEffect } from 'react';
 
 export default function ImageUploader({ currentImage, onImageUpload }) {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState(currentImage || '');
+  const [previewUrl, setPreviewUrl] = useState('');
   const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Solo ejecutar en el cliente
+  useEffect(() => {
+    setMounted(true);
+    setPreviewUrl(currentImage || '');
+  }, [currentImage]);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -103,6 +111,21 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
       fileInputRef.current.value = '';
     }
   };
+
+  // No renderizar hasta que esté montado en el cliente
+  if (!mounted) {
+    return (
+      <div style={{
+        border: '2px dashed #ccc',
+        borderRadius: '8px',
+        padding: '40px 20px',
+        textAlign: 'center',
+        backgroundColor: '#f9f9f9'
+      }}>
+        <p style={{ color: '#666', margin: 0 }}>Cargando...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ width: '100%' }}>

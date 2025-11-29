@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
-import ImageUploader from '../../components/ImageUploader';
+import dynamic from 'next/dynamic';
 
 export default function AdminPanel() {
   const { user, isAdmin, isAuthenticated, loading } = useAuth();
@@ -133,6 +134,24 @@ export default function AdminPanel() {
       setMessage('❌ Error al guardar el producto');
     }
   };
+
+const ImageUploader = dynamic(
+  () => import('../../components/ImageUploader'),
+  { 
+    ssr: false,
+    loading: () => (
+      <div style={{
+        border: '2px dashed #ccc',
+        borderRadius: '8px',
+        padding: '40px 20px',
+        textAlign: 'center',
+        backgroundColor: '#f9f9f9'
+      }}>
+        <p style={{ color: '#666', margin: 0 }}>Cargando uploader...</p>
+      </div>
+    )
+  }
+);
 
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
