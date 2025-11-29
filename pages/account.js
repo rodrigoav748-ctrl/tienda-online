@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';

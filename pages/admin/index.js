@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
-import { getProductImage, getAvailableImages } from '../../lib/imageMapper';
+import ImageUploader from '../../components/ImageUploader';
 
 export default function AdminPanel() {
   const { user, isAdmin, isAuthenticated, loading } = useAuth();
@@ -152,10 +152,6 @@ export default function AdminPanel() {
       
       const method = editingCategory ? 'PUT' : 'POST';
 
-      console.log('Enviando request a:', url);
-      console.log('Método:', method);
-      console.log('Datos:', categoryForm);
-
       const response = await fetch(url, {
         method,
         headers: {
@@ -166,7 +162,6 @@ export default function AdminPanel() {
       });
 
       const data = await response.json();
-      console.log('Respuesta:', data);
 
       if (data.success) {
         setMessage(`✅ Categoría ${editingCategory ? 'actualizada' : 'creada'} exitosamente`);
@@ -176,7 +171,6 @@ export default function AdminPanel() {
         setMessage(`❌ ${data.error || data.message}`);
       }
     } catch (error) {
-      console.error('Error completo:', error);
       setMessage(`❌ Error al guardar la categoría: ${error.message}`);
     }
   };
@@ -217,8 +211,6 @@ export default function AdminPanel() {
         return;
       }
 
-      console.log('Eliminando categoría:', id);
-
       const response = await fetch(`/api/categories/${id}`, {
         method: 'DELETE',
         headers: {
@@ -227,7 +219,6 @@ export default function AdminPanel() {
       });
 
       const data = await response.json();
-      console.log('Respuesta eliminación:', data);
 
       if (data.success) {
         setMessage('✅ Categoría eliminada exitosamente');
@@ -236,13 +227,11 @@ export default function AdminPanel() {
         setMessage(`❌ ${data.message || 'Error al eliminar la categoría'}`);
       }
     } catch (error) {
-      console.error('Error al eliminar:', error);
       setMessage(`❌ Error al eliminar la categoría: ${error.message}`);
     }
   };
 
   const editProduct = (product) => {
-    console.log('Editando producto:', product);
     setEditingProduct(product);
     setProductForm({
       codigo: product.codigo,
@@ -269,7 +258,6 @@ export default function AdminPanel() {
       }
 
       const newStatus = !product.activo;
-      console.log(`Cambiando estado de ${product.nombre} a:`, newStatus);
 
       const response = await fetch(`/api/products/${product._id}`, {
         method: 'PUT',
@@ -291,13 +279,11 @@ export default function AdminPanel() {
         setMessage(`❌ ${data.error || data.message}`);
       }
     } catch (error) {
-      console.error('Error al cambiar estado:', error);
       setMessage(`❌ Error: ${error.message}`);
     }
   };
 
   const editCategory = (category) => {
-    console.log('Editando categoría:', category);
     setEditingCategory(category);
     setCategoryForm({
       nombre: category.nombre,
@@ -319,7 +305,6 @@ export default function AdminPanel() {
       }
 
       const newStatus = !category.activa;
-      console.log(`Cambiando estado de ${category.nombre} a:`, newStatus);
 
       const response = await fetch(`/api/categories/${category._id}`, {
         method: 'PUT',
@@ -341,7 +326,6 @@ export default function AdminPanel() {
         setMessage(`❌ ${data.error || data.message}`);
       }
     } catch (error) {
-      console.error('Error al cambiar estado:', error);
       setMessage(`❌ Error: ${error.message}`);
     }
   };
@@ -536,20 +520,6 @@ export default function AdminPanel() {
                         className="form-input"
                       />
                     </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Imagen</label>
-                      <select
-                        value={productForm.imagen}
-                        onChange={(e) => setProductForm({...productForm, imagen: e.target.value})}
-                        className="form-input"
-                      >
-                        <option value="">Imagen automática</option>
-                        {getAvailableImages().map(img => (
-                          <option key={img} value={img}>{img}</option>
-                        ))}
-                      </select>
-                    </div>
                   </div>
 
                   <div className="form-group">
@@ -560,6 +530,20 @@ export default function AdminPanel() {
                       className="form-input"
                       rows="3"
                     />
+                  </div>
+
+                  {/* NUEVO: Componente de Upload de Imagen */}
+                  <div className="form-group">
+                    <label className="form-label">Imagen del Producto</label>
+                    <ImageUploader
+                      currentImage={productForm.imagen}
+                      onImageUpload={(imageUrl) => {
+                        setProductForm({...productForm, imagen: imageUrl});
+                      }}
+                    />
+                    <small style={{color: '#666', fontSize: '0.85rem', display: 'block', marginTop: '8px'}}>
+                      Sube una imagen desde tu computadora o arrastra y suelta aquí
+                    </small>
                   </div>
 
                   <div className="form-actions">
@@ -763,4 +747,4 @@ export default function AdminPanel() {
 // CRÍTICO: Deshabilitar SSR
 AdminPanel.getInitialProps = () => {
   return {};
-}
+};
