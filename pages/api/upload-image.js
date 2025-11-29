@@ -1,6 +1,8 @@
+// pages/api/upload-image.js - VERSIÓN CORREGIDA
 import formidable from 'formidable';
 import fs from 'fs';
 import path from 'path';
+
 export const config = {
   api: {
     bodyParser: false,
@@ -15,62 +17,82 @@ export default async function handler(req, res) {
   try {
     // Crear directorio de uploads si no existe
     const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+    
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    // Configurar formidable
+    // Configurar formidable con la nueva API (v3+)
     const form = formidable({
-      uploadDir,
+      uploadDir: uploadDir,
       keepExtensions: true,
-      maxFileSize: 5 * 1024 * 1024, // 5MB máximo
-      filename: (name, ext, part, form) => {
-        // Generar nombre único para el archivo
+      maxFileSize: 5 * 1024 * 1024, // 5MB
+      filename: (name, ext, part) => {
         const timestamp = Date.now();
         const randomStr = Math.random().toString(36).substring(2, 8);
         return `product-${timestamp}-${randomStr}${ext}`;
       },
     });
 
-    // Parsear el formulario
-    form.parse(req, (err, fields, files) => {
+    // Parsear el request
+    form.parse(req, async (err, fields, files) => {
       if (err) {
-        console.error('Error al parsear formulario:', err);
+        console.error('Error al parsear:', err);
         return res.status(500).json({ 
           success: false, 
-          message: 'Error al procesar la imagen' 
+          message: 'Error al procesar la imagen',
+          error: err.message 
         });
       }
 
-      // Obtener el archivo subido
-      const file = files.image;
+      console.log('Files recibidos:', files);
+
+      // Manejar tanto formidable v2 como v3
+      let uploadedFile;
       
-      if (!file) {
+      if (files.image) {
+        // Puede ser un array o un objeto
+        uploadedFile = Array.isArray(files.image) ? files.image[0] : files.image;
+      }
+
+      if (!uploadedFile) {
         return res.status(400).json({ 
           success: false, 
           message: 'No se encontró ninguna imagen' 
         });
       }
 
+      console.log('Archivo procesado:', uploadedFile);
+
       // Validar tipo de archivo
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-      const fileArray = Array.isArray(file) ? file : [file];
-      const uploadedFile = fileArray[0];
+      const mimeType = uploadedFile.mimetype || uploadedFile.type;
 
-      if (!allowedTypes.includes(uploadedFile.mimetype)) {
+      if (!allowedTypes.includes(mimeType)) {
         // Eliminar archivo no válido
-        fs.unlinkSync(uploadedFile.filepath);
+        try {
+          const filePath = uploadedFile.filepath || uploadedFile.path;
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (unlinkErr) {
+          console.error('Error al eliminar archivo:', unlinkErr);
+        }
+        
         return res.status(400).json({ 
           success: false, 
           message: 'Tipo de archivo no permitido. Usa JPG, PNG, GIF o WebP' 
         });
       }
 
-      // Obtener el nombre del archivo guardado
-      const filename = path.basename(uploadedFile.filepath);
+      // Obtener ruta del archivo
+      const filePath = uploadedFile.filepath || uploadedFile.path;
+      const filename = path.basename(filePath);
       const imageUrl = `/uploads/${filename}`;
 
-      res.status(200).json({ 
+      console.log('Imagen guardada:', imageUrl);
+
+      return res.status(200).json({ 
         success: true, 
         imageUrl,
         message: 'Imagen subida exitosamente' 
@@ -78,8 +100,8 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Error al subir imagen:', error);
-    res.status(500).json({ 
+    console.error('Error general:', error);
+    return res.status(500).json({ 
       success: false, 
       message: 'Error del servidor',
       error: error.message 
