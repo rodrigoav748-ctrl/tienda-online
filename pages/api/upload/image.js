@@ -1,5 +1,6 @@
 // pages/api/upload/image.js
-import { connectToDatabase } from '../../../../lib/mongodb';
+import dbConnect from '../../../lib/mongodb';
+import Image from '../../../models/Image';
 import { IncomingForm } from 'formidable';
 import { promises as fs } from 'fs';
 
@@ -45,12 +46,11 @@ export default async function handler(req, res) {
     if (!allowedTypes.includes(uploadedFile.mimetype)) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Tipo de archivo no permitido' 
+        message: 'Tipo de archivo no permitido. Use JPG, PNG, GIF o WebP.' 
       });
     }
 
-    // Conectar a MongoDB
-    const { db } = await connectToDatabase();
+    await dbConnect();
 
     // Leer archivo como buffer
     const fileBuffer = await fs.readFile(uploadedFile.filepath);
@@ -59,31 +59,29 @@ export default async function handler(req, res) {
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 15);
     const fileExtension = uploadedFile.originalFilename.split('.').pop();
-    const filename = `image-${timestamp}-${randomStr}.${fileExtension}`;
+    const filename = `product-${timestamp}-${randomStr}.${fileExtension}`;
 
-    // Crear documento en MongoDB
-    const imageDoc = {
+    // Crear y guardar imagen en MongoDB
+    const newImage = new Image({
       filename,
       originalName: uploadedFile.originalFilename,
       mimetype: uploadedFile.mimetype,
       size: uploadedFile.size,
       buffer: fileBuffer,
-      uploadedAt: new Date(),
-    };
+    });
 
-    // Insertar en la colección 'images'
-    const result = await db.collection('images').insertOne(imageDoc);
+    const savedImage = await newImage.save();
 
     // Limpiar archivo temporal
     await fs.unlink(uploadedFile.filepath);
 
-    // Generar URL
-    const imageUrl = `/api/uploads/${result.insertedId}`;
+    // Generar URL para acceder a la imagen
+    const imageUrl = `/api/uploads/${savedImage._id}`;
 
     res.status(200).json({
       success: true,
       imageUrl,
-      fileId: result.insertedId,
+      fileId: savedImage._id.toString(),
       message: 'Imagen subida exitosamente'
     });
 

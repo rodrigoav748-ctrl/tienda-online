@@ -1,6 +1,6 @@
 // pages/api/uploads/[id].js
-import { connectToDatabase } from '../../../../lib/mongodb';
-import { ObjectId } from 'mongodb';
+import dbConnect from '../../../lib/mongodb';
+import Image from '../../../models/Image';
 
 export default async function handler(req, res) {
   const { id } = req.query;
@@ -10,23 +10,22 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { db } = await connectToDatabase();
+    await dbConnect();
 
-    // Buscar imagen en MongoDB
-    const image = await db.collection('images').findOne({ 
-      _id: new ObjectId(id) 
-    });
+    // Buscar la imagen en la base de datos
+    const image = await Image.findById(id);
 
     if (!image) {
       return res.status(404).json({ error: 'Imagen no encontrada' });
     }
 
-    // Configurar headers
+    // Configurar headers para cache
     res.setHeader('Content-Type', image.mimetype);
     res.setHeader('Content-Length', image.size);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Content-Disposition', `inline; filename="${image.originalName}"`);
 
-    // Enviar imagen
+    // Enviar el buffer de la imagen
     res.send(image.buffer);
 
   } catch (error) {

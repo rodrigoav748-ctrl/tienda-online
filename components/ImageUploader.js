@@ -88,8 +88,11 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
       }
 
       if (data.success) {
+        // data.imageUrl será algo como: /api/uploads/507f1f77bcf86cd799439011
         setPreviewUrl(data.imageUrl);
         onImageUpload(data.imageUrl);
+      } else {
+        throw new Error(data.message || 'Error desconocido');
       }
     } catch (error) {
       console.error('Upload error:', error);
@@ -138,6 +141,10 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
                 height: '100%',
                 objectFit: 'contain'
               }}
+              onError={(e) => {
+                console.error('Error loading image:', previewUrl);
+                e.target.style.display = 'none';
+              }}
             />
           </div>
           <div style={{
@@ -157,7 +164,8 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
                 border: 'none',
                 borderRadius: '8px',
                 cursor: 'pointer',
-                fontWeight: '600'
+                fontWeight: '600',
+                opacity: uploading ? 0.6 : 1
               }}
             >
               {uploading ? 'Subiendo...' : 'Cambiar Imagen'}
@@ -173,7 +181,8 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
                 border: 'none',
                 borderRadius: '8px',
                 cursor: 'pointer',
-                fontWeight: '600'
+                fontWeight: '600',
+                opacity: uploading ? 0.6 : 1
               }}
             >
               Eliminar
@@ -189,7 +198,8 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
             textAlign: 'center',
             cursor: 'pointer',
             backgroundColor: dragActive ? '#eff6ff' : '#f8fafc',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.3s ease',
+            opacity: uploading ? 0.7 : 1
           }}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -208,7 +218,7 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
                 margin: '0 auto 1rem',
                 animation: 'spin 1s linear infinite'
               }} />
-              <p style={{ color: '#666', margin: 0 }}>Subiendo imagen...</p>
+              <p style={{ color: '#666', margin: 0 }}>Subiendo imagen a MongoDB...</p>
             </div>
           ) : (
             <>
