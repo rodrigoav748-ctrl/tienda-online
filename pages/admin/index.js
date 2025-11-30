@@ -88,6 +88,8 @@ export default function AdminPanel() {
     }
   };
 
+  
+
   const loadCategories = async () => {
     try {
       const response = await fetch('/api/categories?admin=true');
@@ -101,39 +103,45 @@ export default function AdminPanel() {
   };
 
   const handleProductSubmit = async (e) => {
-    e.preventDefault();
-    setMessage('');
+  e.preventDefault();
+  setMessage('');
 
-    try {
-      const token = localStorage.getItem('token');
-      const url = editingProduct 
-        ? `/api/products/${editingProduct._id}`
-        : '/api/products';
-      
-      const method = editingProduct ? 'PUT' : 'POST';
+  // 🔥 DEBUG: Ver qué se está enviando
+  console.log('📦 Product form data:', productForm);
+  console.log('🖼️ Image URL:', productForm.imagen);
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(productForm),
-      });
+  try {
+    const token = localStorage.getItem('token');
+    const url = editingProduct 
+      ? `/api/products/${editingProduct._id}`
+      : '/api/products';
+    
+    const method = editingProduct ? 'PUT' : 'POST';
 
-      const data = await response.json();
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(productForm),
+    });
 
-      if (data.success) {
-        setMessage(`✅ Producto ${editingProduct ? 'actualizado' : 'creado'} exitosamente`);
-        loadProducts();
-        resetProductForm();
-      } else {
-        setMessage(`❌ ${data.error || data.message}`);
-      }
-    } catch (error) {
-      setMessage('❌ Error al guardar el producto');
+    const data = await response.json();
+    console.log('✅ Server response:', data);
+
+    if (data.success) {
+      setMessage(`✅ Producto ${editingProduct ? 'actualizado' : 'creado'} exitosamente`);
+      loadProducts();
+      resetProductForm();
+    } else {
+      setMessage(`❌ ${data.error || data.message}`);
     }
-  };
+  } catch (error) {
+    console.error('❌ Error saving product:', error);
+    setMessage('❌ Error al guardar el producto');
+  }
+};
 
 const ImageUploader = dynamic(
   () => import('../../components/ImageUploader'),
