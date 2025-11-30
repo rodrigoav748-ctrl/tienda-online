@@ -1,4 +1,4 @@
-// components/ImageUploader.js
+// components/ImageUploader.js - VERSIÓN CORREGIDA
 import { useState, useRef, useEffect } from 'react';
 
 export default function ImageUploader({ currentImage, onImageUpload }) {
@@ -8,9 +8,17 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
+  // 🔥 CORRECCIÓN: Manejar correctamente el preview
   useEffect(() => {
     if (currentImage) {
-      setPreviewUrl(currentImage);
+      // Si es una URL de MongoDB (/api/uploads/xxx), usarla directamente
+      if (currentImage.startsWith('/api/uploads/')) {
+        setPreviewUrl(currentImage);
+      } else {
+        setPreviewUrl(currentImage);
+      }
+    } else {
+      setPreviewUrl('');
     }
   }, [currentImage]);
 
@@ -57,21 +65,16 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
       return;
     }
 
-    // Preview temporal
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setPreviewUrl(e.target.result);
-    };
-    reader.readAsDataURL(file);
+    // 🔥 CORRECCIÓN: NO usar FileReader para preview temporal
+    // Solo mostrar el estado de subida
+    setUploading(true);
+    setError('');
 
-    // Subir a MongoDB
+    // Subir directamente a MongoDB sin preview temporal
     await uploadToMongoDB(file);
   };
 
   const uploadToMongoDB = async (file) => {
-    setUploading(true);
-    setError('');
-
     try {
       const formData = new FormData();
       formData.append('image', file);
@@ -88,15 +91,17 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
       }
 
       if (data.success) {
-        // data.imageUrl será algo como: /api/uploads/507f1f77bcf86cd799439011
-        setPreviewUrl(data.imageUrl);
-        onImageUpload(data.imageUrl);
+        // 🔥 CORRECCIÓN: Usar directamente la URL de MongoDB
+        const mongoUrl = data.imageUrl; // /api/uploads/507f1f77bcf86cd799439011
+        setPreviewUrl(mongoUrl);
+        onImageUpload(mongoUrl);
       } else {
         throw new Error(data.message || 'Error desconocido');
       }
     } catch (error) {
       console.error('Upload error:', error);
       setError(error.message);
+      // Restaurar imagen anterior si existe
       setPreviewUrl(currentImage || '');
     } finally {
       setUploading(false);
@@ -133,6 +138,7 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
             overflow: 'hidden',
             backgroundColor: 'white'
           }}>
+            {/* 🔥 CORRECCIÓN: Imagen optimizada */}
             <img 
               src={previewUrl} 
               alt="Preview" 
@@ -142,10 +148,34 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
                 objectFit: 'contain'
               }}
               onError={(e) => {
-                console.error('Error loading image:', previewUrl);
-                e.target.style.display = 'none';
+                console.error('Error loading image from:', previewUrl);
+                // Si falla, mostrar placeholder
+                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljYTNiOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPsOXIEluYWdlbiBObyBDYXJnYWRhPC90ZXh0Pjwvc3ZnPg==';
               }}
+              onLoad={() => console.log('Image loaded successfully:', previewUrl)}
             />
+            {uploading && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(255,255,255,0.8)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  border: '4px solid #f3f3f3',
+                  borderTop: '4px solid #3b82f6',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }} />
+              </div>
+            )}
           </div>
           <div style={{
             display: 'flex',
@@ -163,7 +193,7 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                cursor: 'pointer',
+                cursor: uploading ? 'not-allowed' : 'pointer',
                 fontWeight: '600',
                 opacity: uploading ? 0.6 : 1
               }}
@@ -180,7 +210,7 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                cursor: 'pointer',
+                cursor: uploading ? 'not-allowed' : 'pointer',
                 fontWeight: '600',
                 opacity: uploading ? 0.6 : 1
               }}
@@ -196,7 +226,7 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
             borderRadius: '12px',
             padding: '3rem 2rem',
             textAlign: 'center',
-            cursor: 'pointer',
+            cursor: uploading ? 'not-allowed' : 'pointer',
             backgroundColor: dragActive ? '#eff6ff' : '#f8fafc',
             transition: 'all 0.3s ease',
             opacity: uploading ? 0.7 : 1
@@ -205,7 +235,7 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
-          onClick={handleButtonClick}
+          onClick={uploading ? undefined : handleButtonClick}
         >
           {uploading ? (
             <div>
@@ -218,7 +248,7 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
                 margin: '0 auto 1rem',
                 animation: 'spin 1s linear infinite'
               }} />
-              <p style={{ color: '#666', margin: 0 }}>Subiendo imagen a MongoDB...</p>
+              <p style={{ color: '#666', margin: 0 }}>Subiendo imagen...</p>
             </div>
           ) : (
             <>
