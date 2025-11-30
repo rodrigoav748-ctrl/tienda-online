@@ -1,4 +1,4 @@
-// components/ImageUploader.js - VERSIÓN CORREGIDA PARA BUILD
+// components/ImageUploader.js
 import { useState, useRef, useEffect } from 'react';
 
 export default function ImageUploader({ currentImage, onImageUpload }) {
@@ -6,13 +6,12 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
   const [dragActive, setDragActive] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
   const [error, setError] = useState('');
-  const [mounted, setMounted] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Solo ejecutar en el cliente
   useEffect(() => {
-    setMounted(true);
-    setPreviewUrl(currentImage || '');
+    if (currentImage) {
+      setPreviewUrl(currentImage);
+    }
   }, [currentImage]);
 
   const handleDrag = (e) => {
@@ -31,45 +30,45 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
     setDragActive(false);
     setError('');
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
+    const files = e.dataTransfer.files;
+    if (files && files[0]) {
+      handleFile(files[0]);
     }
   };
 
   const handleChange = (e) => {
-    e.preventDefault();
     setError('');
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
+    const files = e.target.files;
+    if (files && files[0]) {
+      handleFile(files[0]);
     }
   };
 
   const handleFile = async (file) => {
-    // Validar tipo de archivo
+    // Validaciones
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       setError('Tipo de archivo no válido. Usa JPG, PNG, GIF o WebP');
       return;
     }
 
-    // Validar tamaño (5MB máximo)
     if (file.size > 5 * 1024 * 1024) {
       setError('El archivo es muy grande. Máximo 5MB');
       return;
     }
 
-    // Mostrar preview
+    // Preview temporal
     const reader = new FileReader();
     reader.onload = (e) => {
       setPreviewUrl(e.target.result);
     };
     reader.readAsDataURL(file);
 
-    // Subir archivo
-    await uploadFile(file);
+    // Subir a MongoDB
+    await uploadToMongoDB(file);
   };
 
-  const uploadFile = async (file) => {
+  const uploadToMongoDB = async (file) => {
     setUploading(true);
     setError('');
 
@@ -77,23 +76,24 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch('/api/upload-image', {
+      const response = await fetch('/api/upload/image', {
         method: 'POST',
         body: formData,
       });
 
       const data = await response.json();
 
+      if (!response.ok) {
+        throw new Error(data.message || 'Error al subir la imagen');
+      }
+
       if (data.success) {
         setPreviewUrl(data.imageUrl);
         onImageUpload(data.imageUrl);
-      } else {
-        setError(data.message || 'Error al subir la imagen');
-        setPreviewUrl(currentImage || '');
       }
     } catch (error) {
-      console.error('Error:', error);
-      setError('Error al subir la imagen');
+      console.error('Upload error:', error);
+      setError(error.message);
       setPreviewUrl(currentImage || '');
     } finally {
       setUploading(false);
@@ -112,43 +112,27 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
     }
   };
 
-  // No renderizar hasta que esté montado en el cliente
-  if (!mounted) {
-    return (
-      <div style={{
-        border: '2px dashed #ccc',
-        borderRadius: '8px',
-        padding: '40px 20px',
-        textAlign: 'center',
-        backgroundColor: '#f9f9f9'
-      }}>
-        <p style={{ color: '#666', margin: 0 }}>Cargando...</p>
-      </div>
-    );
-  }
-
   return (
     <div style={{ width: '100%' }}>
       {previewUrl ? (
-        // Preview de la imagen subida
         <div style={{
-          border: '2px solid #e0e0e0',
-          borderRadius: '8px',
-          padding: '15px',
-          backgroundColor: '#f9f9f9'
+          border: '2px solid #e2e8f0',
+          borderRadius: '12px',
+          padding: '1.5rem',
+          backgroundColor: '#f8fafc'
         }}>
           <div style={{
             position: 'relative',
             width: '100%',
             height: '200px',
-            marginBottom: '15px',
-            borderRadius: '6px',
+            marginBottom: '1rem',
+            borderRadius: '8px',
             overflow: 'hidden',
-            backgroundColor: '#fff'
+            backgroundColor: 'white'
           }}>
-            <img
-              src={previewUrl}
-              alt="Preview"
+            <img 
+              src={previewUrl} 
+              alt="Preview" 
               style={{
                 width: '100%',
                 height: '100%',
@@ -158,37 +142,38 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
           </div>
           <div style={{
             display: 'flex',
-            gap: '10px',
-            justifyContent: 'center'
+            gap: '0.75rem',
+            justifyContent: 'center',
+            flexWrap: 'wrap'
           }}>
-            <button
-              type="button"
+            <button 
+              type="button" 
               onClick={handleButtonClick}
+              disabled={uploading}
               style={{
-                padding: '8px 16px',
-                backgroundColor: '#007bff',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#3b82f6',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500'
+                fontWeight: '600'
               }}
             >
-              Cambiar Imagen
+              {uploading ? 'Subiendo...' : 'Cambiar Imagen'}
             </button>
-            <button
-              type="button"
+            <button 
+              type="button" 
               onClick={handleRemoveImage}
+              disabled={uploading}
               style={{
-                padding: '8px 16px',
-                backgroundColor: '#dc3545',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#dc2626',
                 color: 'white',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '8px',
                 cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500'
+                fontWeight: '600'
               }}
             >
               Eliminar
@@ -196,75 +181,71 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
           </div>
         </div>
       ) : (
-        // Zona de drag & drop
         <div
+          style={{
+            border: `2px dashed ${dragActive ? '#3b82f6' : '#e2e8f0'}`,
+            borderRadius: '12px',
+            padding: '3rem 2rem',
+            textAlign: 'center',
+            cursor: 'pointer',
+            backgroundColor: dragActive ? '#eff6ff' : '#f8fafc',
+            transition: 'all 0.3s ease'
+          }}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
-          style={{
-            border: `2px dashed ${dragActive ? '#007bff' : '#ccc'}`,
-            borderRadius: '8px',
-            padding: '40px 20px',
-            textAlign: 'center',
-            cursor: 'pointer',
-            backgroundColor: dragActive ? '#f0f8ff' : '#f9f9f9',
-            transition: 'all 0.3s ease'
-          }}
           onClick={handleButtonClick}
         >
           {uploading ? (
             <div>
               <div style={{
-                width: '40px',
-                height: '40px',
-                border: '4px solid #f3f3f3',
-                borderTop: '4px solid #007bff',
+                width: '3rem',
+                height: '3rem',
+                border: '3px solid #e2e8f0',
+                borderTop: '3px solid #3b82f6',
                 borderRadius: '50%',
-                margin: '0 auto 15px',
+                margin: '0 auto 1rem',
                 animation: 'spin 1s linear infinite'
               }} />
               <p style={{ color: '#666', margin: 0 }}>Subiendo imagen...</p>
             </div>
           ) : (
             <>
-              <div style={{ fontSize: '48px', marginBottom: '15px' }}>
-                📸
-              </div>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📸</div>
               <p style={{
-                fontSize: '16px',
+                fontSize: '1.125rem',
                 fontWeight: '600',
-                color: '#333',
-                margin: '0 0 8px 0'
+                color: '#1e293b',
+                margin: '0 0 0.5rem 0'
               }}>
                 {dragActive ? 'Suelta la imagen aquí' : 'Arrastra una imagen aquí'}
               </p>
               <p style={{
-                fontSize: '14px',
-                color: '#666',
-                margin: '0 0 12px 0'
+                fontSize: '0.875rem',
+                color: '#64748b',
+                margin: '0 0 1rem 0'
               }}>
                 o
               </p>
               <button
                 type="button"
                 style={{
-                  padding: '10px 24px',
-                  backgroundColor: '#007bff',
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#3b82f6',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                   cursor: 'pointer',
-                  fontSize: '14px',
                   fontWeight: '600'
                 }}
               >
                 Seleccionar Archivo
               </button>
               <p style={{
-                fontSize: '12px',
-                color: '#999',
-                margin: '12px 0 0 0'
+                fontSize: '0.75rem',
+                color: '#94a3b8',
+                margin: '1rem 0 0 0'
               }}>
                 JPG, PNG, GIF o WebP (máx. 5MB)
               </p>
@@ -275,15 +256,15 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
 
       {error && (
         <div style={{
-          marginTop: '10px',
-          padding: '10px',
-          backgroundColor: '#fee',
-          border: '1px solid #fcc',
-          borderRadius: '4px',
-          color: '#c00',
-          fontSize: '14px'
+          marginTop: '1rem',
+          padding: '0.75rem 1rem',
+          backgroundColor: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: '8px',
+          color: '#dc2626',
+          fontSize: '0.875rem'
         }}>
-          {error}
+          <strong>Error:</strong> {error}
         </div>
       )}
 
