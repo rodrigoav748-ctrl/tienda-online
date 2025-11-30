@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -52,10 +51,10 @@ export default function AdminPanel() {
     }
   }, [autoGenerateCode, editingProduct]);
 
+  // Eliminé el campo imagen del formulario de categorías
   const [categoryForm, setCategoryForm] = useState({
     nombre: '',
     descripcion: '',
-    imagen: '',
     activa: true
   });
 
@@ -88,8 +87,6 @@ export default function AdminPanel() {
     }
   };
 
-  
-
   const loadCategories = async () => {
     try {
       const response = await fetch('/api/categories?admin=true');
@@ -103,63 +100,63 @@ export default function AdminPanel() {
   };
 
   const handleProductSubmit = async (e) => {
-  e.preventDefault();
-  setMessage('');
+    e.preventDefault();
+    setMessage('');
 
-  // 🔥 DEBUG: Ver qué se está enviando
-  console.log('📦 Product form data:', productForm);
-  console.log('🖼️ Image URL:', productForm.imagen);
+    // 🔥 DEBUG: Ver qué se está enviando
+    console.log('📦 Product form data:', productForm);
+    console.log('🖼️ Image URL:', productForm.imagen);
 
-  try {
-    const token = localStorage.getItem('token');
-    const url = editingProduct 
-      ? `/api/products/${editingProduct._id}`
-      : '/api/products';
-    
-    const method = editingProduct ? 'PUT' : 'POST';
+    try {
+      const token = localStorage.getItem('token');
+      const url = editingProduct 
+        ? `/api/products/${editingProduct._id}`
+        : '/api/products';
+      
+      const method = editingProduct ? 'PUT' : 'POST';
 
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(productForm),
-    });
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(productForm),
+      });
 
-    const data = await response.json();
-    console.log('✅ Server response:', data);
+      const data = await response.json();
+      console.log('✅ Server response:', data);
 
-    if (data.success) {
-      setMessage(`✅ Producto ${editingProduct ? 'actualizado' : 'creado'} exitosamente`);
-      loadProducts();
-      resetProductForm();
-    } else {
-      setMessage(`❌ ${data.error || data.message}`);
+      if (data.success) {
+        setMessage(`✅ Producto ${editingProduct ? 'actualizado' : 'creado'} exitosamente`);
+        loadProducts();
+        resetProductForm();
+      } else {
+        setMessage(`❌ ${data.error || data.message}`);
+      }
+    } catch (error) {
+      console.error('❌ Error saving product:', error);
+      setMessage('❌ Error al guardar el producto');
     }
-  } catch (error) {
-    console.error('❌ Error saving product:', error);
-    setMessage('❌ Error al guardar el producto');
-  }
-};
+  };
 
-const ImageUploader = dynamic(
-  () => import('../../components/ImageUploader'),
-  { 
-    ssr: false,
-    loading: () => (
-      <div style={{
-        border: '2px dashed #ccc',
-        borderRadius: '8px',
-        padding: '40px 20px',
-        textAlign: 'center',
-        backgroundColor: '#f9f9f9'
-      }}>
-        <p style={{ color: '#666', margin: 0 }}>Cargando uploader...</p>
-      </div>
-    )
-  }
-);
+  const ImageUploader = dynamic(
+    () => import('../../components/ImageUploader'),
+    { 
+      ssr: false,
+      loading: () => (
+        <div style={{
+          border: '2px dashed #ccc',
+          borderRadius: '8px',
+          padding: '40px 20px',
+          textAlign: 'center',
+          backgroundColor: '#f9f9f9'
+        }}>
+          <p style={{ color: '#666', margin: 0 }}>Cargando uploader...</p>
+        </div>
+      )
+    }
+  );
 
   const handleCategorySubmit = async (e) => {
     e.preventDefault();
@@ -315,7 +312,6 @@ const ImageUploader = dynamic(
     setCategoryForm({
       nombre: category.nombre,
       descripcion: category.descripcion || '',
-      imagen: category.imagen || '',
       activa: category.activa !== undefined ? category.activa : true
     });
     setShowCategoryForm(true);
@@ -377,7 +373,6 @@ const ImageUploader = dynamic(
     setCategoryForm({
       nombre: '',
       descripcion: '',
-      imagen: '',
       activa: true
     });
     setEditingCategory(null);
@@ -559,7 +554,7 @@ const ImageUploader = dynamic(
                     />
                   </div>
 
-                  {/* NUEVO: Componente de Upload de Imagen */}
+                  {/* Componente de Upload de Imagen - SOLO PARA PRODUCTOS */}
                   <div className="form-group">
                     <label className="form-label">Imagen del Producto</label>
                     <ImageUploader
@@ -669,17 +664,6 @@ const ImageUploader = dynamic(
                         onChange={(e) => setCategoryForm({...categoryForm, nombre: e.target.value})}
                         className="form-input"
                         required
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="form-label">Imagen URL</label>
-                      <input
-                        type="text"
-                        value={categoryForm.imagen}
-                        onChange={(e) => setCategoryForm({...categoryForm, imagen: e.target.value})}
-                        className="form-input"
-                        placeholder="/images/category-placeholder.jpg"
                       />
                     </div>
                   </div>
