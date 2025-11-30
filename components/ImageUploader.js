@@ -1,26 +1,11 @@
-// components/ImageUploader.js - VERSIÓN CORREGIDA
-import { useState, useRef, useEffect } from 'react';
+
+import { useState, useRef } from 'react';
 
 export default function ImageUploader({ currentImage, onImageUpload }) {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState('');
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
-
-  // 🔥 CORRECCIÓN: Manejar correctamente el preview
-  useEffect(() => {
-    if (currentImage) {
-      // Si es una URL de MongoDB (/api/uploads/xxx), usarla directamente
-      if (currentImage.startsWith('/api/uploads/')) {
-        setPreviewUrl(currentImage);
-      } else {
-        setPreviewUrl(currentImage);
-      }
-    } else {
-      setPreviewUrl('');
-    }
-  }, [currentImage]);
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -65,44 +50,41 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
       return;
     }
 
-    // 🔥 CORRECCIÓN: NO usar FileReader para preview temporal
-    // Solo mostrar el estado de subida
     setUploading(true);
     setError('');
 
-    // Subir directamente a MongoDB sin preview temporal
-    await uploadToMongoDB(file);
-  };
-
-  const uploadToMongoDB = async (file) => {
     try {
-      const formData = new FormData();
-      formData.append('image', file);
+      // Convertir a base64 para Cloudinary
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      
+      reader.onload = async () => {
+        const base64 = reader.result;
+        
+        const response = await fetch('/api/upload/cloudinary', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ image: base64 }),
+        });
 
-      const response = await fetch('/api/upload/image', {
-        method: 'POST',
-        body: formData,
-      });
+        const data = await response.json();
 
-      const data = await response.json();
+        if (data.success) {
+          onImageUpload(data.imageUrl); // URL de Cloudinary
+        } else {
+          throw new Error(data.error || 'Error al subir la imagen');
+        }
+      };
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Error al subir la imagen');
-      }
+      reader.onerror = () => {
+        throw new Error('Error al leer el archivo');
+      };
 
-      if (data.success) {
-        // 🔥 CORRECCIÓN: Usar directamente la URL de MongoDB
-        const mongoUrl = data.imageUrl; // /api/uploads/507f1f77bcf86cd799439011
-        setPreviewUrl(mongoUrl);
-        onImageUpload(mongoUrl);
-      } else {
-        throw new Error(data.message || 'Error desconocido');
-      }
     } catch (error) {
       console.error('Upload error:', error);
       setError(error.message);
-      // Restaurar imagen anterior si existe
-      setPreviewUrl(currentImage || '');
     } finally {
       setUploading(false);
     }
@@ -113,7 +95,6 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
   };
 
   const handleRemoveImage = () => {
-    setPreviewUrl('');
     onImageUpload('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -122,7 +103,7 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
 
   return (
     <div style={{ width: '100%' }}>
-      {previewUrl ? (
+      {currentImage ? (
         <div style={{
           border: '2px solid #e2e8f0',
           borderRadius: '12px',
@@ -138,21 +119,14 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
             overflow: 'hidden',
             backgroundColor: 'white'
           }}>
-            {/* 🔥 CORRECCIÓN: Imagen optimizada */}
             <img 
-              src={previewUrl} 
+              src={currentImage} 
               alt="Preview" 
               style={{
                 width: '100%',
                 height: '100%',
                 objectFit: 'contain'
               }}
-              onError={(e) => {
-                console.error('Error loading image from:', previewUrl);
-                // Si falla, mostrar placeholder
-                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzljYTNiOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPsOXIEluYWdlbiBObyBDYXJnYWRhPC90ZXh0Pjwvc3ZnPg==';
-              }}
-              onLoad={() => console.log('Image loaded successfully:', previewUrl)}
             />
             {uploading && (
               <div style={{
@@ -248,7 +222,7 @@ export default function ImageUploader({ currentImage, onImageUpload }) {
                 margin: '0 auto 1rem',
                 animation: 'spin 1s linear infinite'
               }} />
-              <p style={{ color: '#666', margin: 0 }}>Subiendo imagen...</p>
+              <p style={{ color: '#666', margin: 0 }}>Subiendo a Cloudinary...</p>
             </div>
           ) : (
             <>

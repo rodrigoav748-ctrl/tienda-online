@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.8.0",
     "csv-parser": "^3.0.0",
     "formidable": "^3.5.4",
     "jsonwebtoken": "^9.0.0",
