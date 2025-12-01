@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
@@ -13,8 +13,27 @@ export default function Products() {
   const [showOfertas, setShowOfertas] = useState(false);
   const [priceRange, setPriceRange] = useState({ min: 0, max: 10000 });
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  
   const { user, isAuthenticated, isAdmin } = useAuth();
   const router = useRouter();
+  const observer = useRef();
+
+  // Observer para el último producto
+  const lastProductRef = useCallback(node => {
+    if (loadingMore) return;
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loadingMore) {
+        loadMoreProducts();
+      }
+    });
+
+    if (node) observer.current.observe(node);
+  }, [loadingMore, hasMore]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -24,18 +43,20 @@ export default function Products() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      loadProducts();
+      loadInitialProducts();
       loadCategories();
       loadCart();
     }
   }, [isAuthenticated]);
 
-  const loadProducts = async () => {
+  // Carga inicial de productos
+  const loadInitialProducts = async () => {
     try {
-      const response = await fetch('/api/products');
+      setLoading(true);
+      const response = await fetch('/api/products?page=1&limit=12');
       const data = await response.json();
+      
       if (data.success) {
-        // IMPORTANTE: Filtrar solo productos activos para clientes
         const activeProducts = data.data.filter(p => p.activo === true);
         const productsWithQuantity = activeProducts.map(p => ({ ...p, quantity: 1 }));
         setProducts(productsWithQuantity);
@@ -48,6 +69,10 @@ export default function Products() {
           const maxPrice = Math.max(...prices);
           setPriceRange({ min: minPrice, max: maxPrice });
         }
+        
+        // Verificar si hay más productos
+        setHasMore(data.pagination.hasMore);
+        setCurrentPage(1);
       }
     } catch (error) {
       console.error('Error loading products:', error);
@@ -56,12 +81,36 @@ export default function Products() {
     }
   };
 
+  // Cargar más productos
+  const loadMoreProducts = async () => {
+    if (loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    try {
+      const nextPage = currentPage + 1;
+      const response = await fetch(`/api/products?page=${nextPage}&limit=12`);
+      const data = await response.json();
+      
+      if (data.success) {
+        const activeProducts = data.data.filter(p => p.activo === true);
+        const productsWithQuantity = activeProducts.map(p => ({ ...p, quantity: 1 }));
+        
+        setProducts(prev => [...prev, ...productsWithQuantity]);
+        setCurrentPage(nextPage);
+        setHasMore(data.pagination.hasMore);
+      }
+    } catch (error) {
+      console.error('Error loading more products:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const loadCategories = async () => {
     try {
       const response = await fetch('/api/categories');
       const data = await response.json();
       if (data.success) {
-        // La API ya filtra solo categorías activas
         setCategories(data.data);
       } else {
         setCategories([]);
@@ -106,7 +155,6 @@ export default function Products() {
     
     const matchesPrice = precioFinal >= priceRange.min && precioFinal <= priceRange.max;
     
-    // IMPORTANTE: Verificar que la categoría esté activa
     const categoryActive = categories.some(cat => 
       cat.nombre === product.categoria && cat.activa === true
     );
@@ -126,13 +174,9 @@ export default function Products() {
     setSelectedCategories([]);
     setShowOfertas(false);
     setSearchTerm('');
-    
-    if (products.length > 0) {
-      const prices = products.map(p => getPrecioFinal(p));
-      const minPrice = Math.min(...prices);
-      const maxPrice = Math.max(...prices);
-      setPriceRange({ min: minPrice, max: maxPrice });
-    }
+    setCurrentPage(1);
+    setHasMore(true);
+    loadInitialProducts();
   };
 
   const updateQuantity = (productId, newQuantity) => {
@@ -345,6 +389,7 @@ export default function Products() {
               <h2>Nuestros Productos</h2>
               <div className="products-stats">
                 <span>{filteredProducts.length} productos</span>
+                {hasMore && <span className="more-available">+ más disponibles</span>}
               </div>
             </div>
 
@@ -358,106 +403,126 @@ export default function Products() {
                 </button>
               </div>
             ) : (
-              <div className="products-grid">
-                {filteredProducts.map(product => {
-                  const precioFinal = getPrecioFinal(product);
-                  const tieneDescuento = product.descuento > 0;
-                  
-                  return (
-                    <div key={product._id} className="product-card">
-                      <div className="product-image-container">
-                        <img 
-                          src={product.imagen || getProductImage(product)}
-                          alt={product.nombre}
-                          className="product-image"
-                          onError={(e) => {
-                            e.target.src = getProductImage(product);
-                          }}
-                        />
-                        {(product.oferta || tieneDescuento) && (
-                          <div className="product-badge">
-                            {tieneDescuento ? `-${product.descuento}%` : 'OFERTA'}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="product-info">
-                        <h3 
-                          className="product-name"
-                          title={product.descripcion || product.nombre}
-                        >
-                          {product.nombre}
-                        </h3>
+              <>
+                <div className="products-grid">
+                  {filteredProducts.map((product, index) => {
+                    const precioFinal = getPrecioFinal(product);
+                    const tieneDescuento = product.descuento > 0;
+                    const isLastProduct = index === filteredProducts.length - 1;
+                    
+                    return (
+                      <div 
+                        key={product._id} 
+                        className="product-card"
+                        ref={isLastProduct ? lastProductRef : null}
+                      >
+                        <div className="product-image-container">
+                          <img 
+                            src={product.imagen || getProductImage(product)}
+                            alt={product.nombre}
+                            className="product-image"
+                            onError={(e) => {
+                              e.target.src = getProductImage(product);
+                            }}
+                          />
+                          {(product.oferta || tieneDescuento) && (
+                            <div className="product-badge">
+                              {tieneDescuento ? `-${product.descuento}%` : 'OFERTA'}
+                            </div>
+                          )}
+                        </div>
                         
-                        <div className="product-price">
-                          <span className="current-price">${precioFinal.toFixed(2)}</span>
-                          {tieneDescuento && (
-                            <span className="original-price">${product.precio.toFixed(2)}</span>
-                          )}
-                        </div>
-
-                        {tieneDescuento && (
-                          <div className="discount-info">
-                            Ahorras ${(product.precio - precioFinal).toFixed(2)}
-                          </div>
-                        )}
-
-                        <div className="product-stock">
-                          <span className={`stock-indicator ${product.stock <= 10 ? 'low-stock' : ''}`}></span>
-                          {product.stock} en stock
-                          {product.stock <= 10 && product.stock > 0 && (
-                            <span className="low-stock-badge">¡Quedan pocos!</span>
-                          )}
-                        </div>
-
-                        {product.descripcion && (
-                          <p className="product-description">
-                            {product.descripcion}
-                          </p>
-                        )}
-
-                        {product.descripcion && (
-                          <div className="product-tooltip">
-                            <strong>{product.nombre}</strong>
-                            <p>{product.descripcion}</p>
-                            {product.categoria && <small>Categoría: {product.categoria}</small>}
-                          </div>
-                        )}
-
-                        <div className="product-actions">
-                          <div className="quantity-selector-full">
-                            <button 
-                              className="quantity-btn-full"
-                              onClick={() => updateQuantity(product._id, (product.quantity || 1) - 1)}
-                              disabled={(product.quantity || 1) <= 1}
-                            >
-                              -
-                            </button>
-                            <span className="quantity-number-full">
-                              {product.quantity || 1}
-                            </span>
-                            <button 
-                              className="quantity-btn-full"
-                              onClick={() => updateQuantity(product._id, (product.quantity || 1) + 1)}
-                              disabled={(product.quantity || 1) >= product.stock}
-                            >
-                              +
-                            </button>
-                          </div>
-
-                          <button 
-                            className="btn btn-primary add-to-cart-btn-full"
-                            onClick={() => addToCart(product)}
-                            disabled={product.stock === 0}
+                        <div className="product-info">
+                          <h3 
+                            className="product-name"
+                            title={product.descripcion || product.nombre}
                           >
-                            {product.stock === 0 ? 'Sin Stock' : ' Agregar'}
-                          </button>
+                            {product.nombre}
+                          </h3>
+                          
+                          <div className="product-price">
+                            <span className="current-price">${precioFinal.toFixed(2)}</span>
+                            {tieneDescuento && (
+                              <span className="original-price">${product.precio.toFixed(2)}</span>
+                            )}
+                          </div>
+
+                          {tieneDescuento && (
+                            <div className="discount-info">
+                              Ahorras ${(product.precio - precioFinal).toFixed(2)}
+                            </div>
+                          )}
+
+                          <div className="product-stock">
+                            <span className={`stock-indicator ${product.stock <= 10 ? 'low-stock' : ''}`}></span>
+                            {product.stock} en stock
+                            {product.stock <= 10 && product.stock > 0 && (
+                              <span className="low-stock-badge">¡Quedan pocos!</span>
+                            )}
+                          </div>
+
+                          {product.descripcion && (
+                            <p className="product-description">
+                              {product.descripcion}
+                            </p>
+                          )}
+
+                          {product.descripcion && (
+                            <div className="product-tooltip">
+                              <strong>{product.nombre}</strong>
+                              <p>{product.descripcion}</p>
+                              {product.categoria && <small>Categoría: {product.categoria}</small>}
+                            </div>
+                          )}
+
+                          <div className="product-actions">
+                            <div className="quantity-selector-full">
+                              <button 
+                                className="quantity-btn-full"
+                                onClick={() => updateQuantity(product._id, (product.quantity || 1) - 1)}
+                                disabled={(product.quantity || 1) <= 1}
+                              >
+                                -
+                              </button>
+                              <span className="quantity-number-full">
+                                {product.quantity || 1}
+                              </span>
+                              <button 
+                                className="quantity-btn-full"
+                                onClick={() => updateQuantity(product._id, (product.quantity || 1) + 1)}
+                                disabled={(product.quantity || 1) >= product.stock}
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <button 
+                              className="btn btn-primary add-to-cart-btn-full"
+                              onClick={() => addToCart(product)}
+                              disabled={product.stock === 0}
+                            >
+                              {product.stock === 0 ? 'Sin Stock' : ' Agregar'}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+
+                {loadingMore && (
+                  <div className="loading-more">
+                    <div className="spinner-small"></div>
+                    <p>Cargando más productos...</p>
+                  </div>
+                )}
+
+                {!hasMore && products.length > 0 && (
+                  <div className="no-more-products">
+                    <p>🎉 ¡Has visto todos nuestros productos!</p>
+                  </div>
+                )}
+              </>
             )}
           </main>
 
@@ -570,6 +635,44 @@ export default function Products() {
           </aside>
         </div>
       </div>
+
+      <style jsx>{`
+        .more-available {
+          color: #666;
+          font-size: 0.9em;
+          margin-left: 10px;
+        }
+
+        .loading-more {
+          text-align: center;
+          padding: 40px 20px;
+          color: #666;
+        }
+
+        .spinner-small {
+          border: 3px solid #f3f3f3;
+          border-top: 3px solid #3498db;
+          border-radius: 50%;
+          width: 30px;
+          height: 30px;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 10px;
+        }
+
+        .no-more-products {
+          text-align: center;
+          padding: 30px;
+          color: #888;
+          font-style: italic;
+          border-top: 1px solid #eee;
+          margin-top: 20px;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </>
   );
 }
@@ -580,7 +683,7 @@ function UserDropdown({ user, isAdmin }) {
   const router = useRouter();
 
   const handleLogout = () => {
-    logout(); // Ya no necesitamos setIsOpen(false) porque redirige
+    logout();
   };
 
   const goToProfile = () => {
