@@ -74,18 +74,22 @@ export default function AdminPanel() {
   }, [isAdmin]);
 
   const loadProducts = async () => {
-    try {
-      const response = await fetch('/api/products?admin=true');
-      const data = await response.json();
-      if (data.success) {
-        setProducts(data.data);
+    try {
+      
+      const response = await fetch('/api/products?admin=true'); 
+      const data = await response.json();
+      if (data.success) {
+        
+        setProducts(data.data);
+      } else {
+          console.error('API Error:', data.error);
       }
-    } catch (error) {
-      console.error('Error loading products:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    } catch (error) {
+      console.error('Error loading products:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const loadCategories = async () => {
     try {
