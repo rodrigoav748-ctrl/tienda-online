@@ -1,4 +1,5 @@
 // pages/api/products/all.js
+
 import dbConnect from '../../../lib/mongodb';
 import Product from '../../../models/Product';
 
@@ -7,13 +8,10 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      // Opcional: Implementar aquí la lógica de autenticación y autorización (isAdmin)
-
-      // 🛑 Obtener TODOS los productos (sin filtros de 'activo' y sin limitación)
+      // Obtener TODOS los productos sin limitación ni filtros de 'activo'
       const products = await Product.find({})
-        .sort({ codigo: 1 }); // Ordenar por código o nombre para fácil administración
+        .sort({ codigo: 1 }); // Ordenar por código para fácil administración
 
-      // Devolver la lista completa (sin datos de paginación)
       res.status(200).json({
         success: true,
         data: products,
