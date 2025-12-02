@@ -20,9 +20,12 @@ export default function Catalog() {
 
   const loadProducts = async () => {
     try {
-      const response = await fetch('/api/products');
+      // 🔥 Cambio aquí: usar /api/products/all en lugar de /api/products
+      const response = await fetch('/api/products/all');
       const data = await response.json();
+      
       if (data.success) {
+        // Filtrar solo productos activos para el catálogo público
         const activeProducts = data.data.filter(p => p.activo === true);
         const productsWithQuantity = activeProducts.map(p => ({ ...p, quantity: 1 }));
         setProducts(productsWithQuantity);
@@ -48,7 +51,9 @@ export default function Catalog() {
       const response = await fetch('/api/categories');
       const data = await response.json();
       if (data.success) {
-        setCategories(data.data);
+        // Filtrar solo categorías activas
+        const activeCategories = data.data.filter(cat => cat.activa === true);
+        setCategories(activeCategories);
       }
     } catch (error) {
       console.error('Error loading categories:', error);
@@ -70,7 +75,8 @@ export default function Catalog() {
   const filteredProducts = products.filter(product => {
     const precioFinal = getPrecioFinal(product);
     const matchesSearch = product.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
+                         (product.descripcion && product.descripcion.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         product.codigo.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCategories = selectedCategories.length === 0 || 
                             selectedCategories.includes(product.categoria);
@@ -152,7 +158,7 @@ export default function Catalog() {
             <div className="search-bar-compact">
               <input
                 type="text"
-                placeholder="Buscar..."
+                placeholder="Buscar por nombre, código o descripción..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="search-input-compact"
@@ -163,7 +169,7 @@ export default function Catalog() {
 
           <div className="header-compact-right">
             <button className="btn btn-primary btn-sm" onClick={goToLogin}>
-                 Iniciar Sesión
+              🔐 Iniciar Sesión
             </button>
           </div>
         </header>
@@ -213,7 +219,7 @@ export default function Catalog() {
                 </label>
               </div>
               
-              <button className="btn btn-secondary btn-sm" onClick={resetFilters}>
+              <button className="btn btn-secondary btn-sm btn-block" onClick={resetFilters}>
                 🔄 Limpiar filtros
               </button>
             </div>
@@ -223,17 +229,30 @@ export default function Catalog() {
             <div className="products-header">
               <h2>Nuestros Productos</h2>
               <div className="products-stats">
-                <span>{filteredProducts.length} productos</span>
+                <span>
+                  {filteredProducts.length} {filteredProducts.length === 1 ? 'producto' : 'productos'}
+                  {searchTerm && ` encontrado${filteredProducts.length !== 1 ? 's' : ''}`}
+                </span>
               </div>
             </div>
 
             {filteredProducts.length === 0 ? (
               <div className="no-products">
-                <div className="no-products-icon">😔</div>
-                <h3>No hay productos</h3>
-                <p>No encontramos productos con los filtros seleccionados</p>
+                <div className="no-products-icon">
+                  {searchTerm ? '🔍' : '😔'}
+                </div>
+                <h3>
+                  {searchTerm 
+                    ? 'No se encontraron resultados' 
+                    : 'No hay productos disponibles'}
+                </h3>
+                <p>
+                  {searchTerm 
+                    ? `No encontramos productos que coincidan con "${searchTerm}"` 
+                    : 'No hay productos con los filtros seleccionados'}
+                </p>
                 <button className="btn btn-primary" onClick={resetFilters}>
-                  Mostrar todos los productos
+                  {searchTerm ? 'Limpiar búsqueda' : 'Mostrar todos los productos'}
                 </button>
               </div>
             ) : (
@@ -300,6 +319,7 @@ export default function Catalog() {
                             <strong>{product.nombre}</strong>
                             <p>{product.descripcion}</p>
                             {product.categoria && <small>Categoría: {product.categoria}</small>}
+                            {product.codigo && <small style={{display: 'block', marginTop: '4px'}}>Código: {product.codigo}</small>}
                           </div>
                         )}
 
@@ -329,7 +349,7 @@ export default function Catalog() {
                             onClick={() => handleAddToCart(product)}
                             disabled={product.stock === 0}
                           >
-                            {product.stock === 0 ? 'Sin Stock' : '  Agregar'}
+                            {product.stock === 0 ? '❌ Sin Stock' : '🛒 Agregar'}
                           </button>
                         </div>
                       </div>
@@ -346,10 +366,10 @@ export default function Catalog() {
             </div>
 
             <div className="cart-empty">
-              <div className="empty-icon"></div>
-              <p>Inicia sesión para agregar productos</p>
+              <div className="empty-icon">🔒</div>
+              <p>Inicia sesión para agregar productos al carrito</p>
               <button className="btn btn-primary" onClick={goToLogin}>
-                Iniciar Sesión
+                🔐 Iniciar Sesión
               </button>
             </div>
           </aside>
