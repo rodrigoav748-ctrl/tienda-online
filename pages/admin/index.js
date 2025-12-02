@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useAuth } from '../context/AuthContext'; 
+import { useAuth } from '../../context/AuthContext';
 
 export default function AdminDashboard() {
   const [products, setProducts] = useState([]);
