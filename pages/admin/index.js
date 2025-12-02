@@ -8,23 +8,23 @@ export default function AdminPanel() {
   const { user, isAdmin, isAuthenticated, loading } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('products');
-  
+ 
   // Estados para productos
   const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
   const [showProductForm, setShowProductForm] = useState(false);
   
+  // Estado para búsqueda de productos
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredProducts, setFilteredProducts] = useState([]);
+ 
   // Estados para categorías
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  
+ 
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
 
   const [productForm, setProductForm] = useState({
     codigo: '',
@@ -61,34 +61,6 @@ export default function AdminPanel() {
     activa: true
   });
 
-  // Efecto para filtrar productos
-  useEffect(() => {
-    let filtered = products;
-
-    // Filtro por búsqueda
-    if (searchTerm.trim() !== '') {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(product =>
-        product.nombre.toLowerCase().includes(term) ||
-        product.codigo.toLowerCase().includes(term) ||
-        (product.descripcion && product.descripcion.toLowerCase().includes(term))
-      );
-    }
-
-    // Filtro por categoría
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(product => product.categoria === selectedCategory);
-    }
-
-    // Filtro por estado
-    if (statusFilter !== 'all') {
-      const isActive = statusFilter === 'active';
-      filtered = filtered.filter(product => product.activo === isActive);
-    }
-
-    setFilteredProducts(filtered);
-  }, [products, searchTerm, selectedCategory, statusFilter]);
-
   useEffect(() => {
     if (!loading && !isAuthenticated) {
       router.push('/login');
@@ -104,18 +76,31 @@ export default function AdminPanel() {
     }
   }, [isAdmin]);
 
+  // Filtrar productos cuando cambia la búsqueda
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredProducts(products);
+    } else {
+      const query = searchQuery.toLowerCase();
+      const filtered = products.filter(product => 
+        product.nombre.toLowerCase().includes(query) ||
+        product.codigo.toLowerCase().includes(query) ||
+        product.categoria.toLowerCase().includes(query)
+      );
+      setFilteredProducts(filtered);
+    }
+  }, [searchQuery, products]);
+
   const loadProducts = async () => {
     try {
-      setIsLoading(true);
       const response = await fetch('/api/products/all');
       const data = await response.json();
       if (data.success) {
-        setProducts(data.data || []);
-        setFilteredProducts(data.data || []);
+        setProducts(data.data);
+        setFilteredProducts(data.data);
       }
     } catch (error) {
       console.error('Error loading products:', error);
-      setMessage('❌ Error al cargar productos');
     } finally {
       setIsLoading(false);
     }
@@ -123,14 +108,13 @@ export default function AdminPanel() {
 
   const loadCategories = async () => {
     try {
-      const response = await fetch('/api/categories');
+      const response = await fetch('/api/categories?admin=true');
       const data = await response.json();
       if (data.success) {
-        setCategories(data.data || []);
+        setCategories(data.data);
       }
     } catch (error) {
       console.error('Error loading categories:', error);
-      setMessage('❌ Error al cargar categorías');
     }
   };
 
@@ -138,17 +122,12 @@ export default function AdminPanel() {
     e.preventDefault();
     setMessage('');
 
-    if (!productForm.codigo || !productForm.nombre || !productForm.precio || !productForm.stock || !productForm.categoria) {
-      setMessage('❌ Por favor complete todos los campos requeridos');
-      return;
-    }
-
     try {
       const token = localStorage.getItem('token');
       const url = editingProduct
         ? `/api/products/${editingProduct._id}`
         : '/api/products';
-      
+     
       const method = editingProduct ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -166,12 +145,9 @@ export default function AdminPanel() {
         setMessage(`✅ Producto ${editingProduct ? 'actualizado' : 'creado'} exitosamente`);
         loadProducts();
         resetProductForm();
-        
-        setTimeout(() => {
-          setShowProductForm(false);
-        }, 2000);
+        setTimeout(() => setMessage(''), 3000);
       } else {
-        setMessage(`❌ ${data.error || data.message || 'Error al guardar el producto'}`);
+        setMessage(`❌ ${data.error || data.message}`);
       }
     } catch (error) {
       console.error('❌ Error saving product:', error);
@@ -184,8 +160,14 @@ export default function AdminPanel() {
     {
       ssr: false,
       loading: () => (
-        <div className="image-uploader-loading">
-          <p>Cargando uploader...</p>
+        <div style={{
+          border: '2px dashed #ccc',
+          borderRadius: '8px',
+          padding: '40px 20px',
+          textAlign: 'center',
+          backgroundColor: '#f9f9f9'
+        }}>
+          <p style={{ color: '#666', margin: 0 }}>Cargando uploader...</p>
         </div>
       )
     }
@@ -195,14 +177,9 @@ export default function AdminPanel() {
     e.preventDefault();
     setMessage('');
 
-    if (!categoryForm.nombre.trim()) {
-      setMessage('❌ El nombre de la categoría es requerido');
-      return;
-    }
-
     try {
       const token = localStorage.getItem('token');
-      
+     
       if (!token) {
         setMessage('❌ No estás autenticado. Por favor inicia sesión nuevamente.');
         return;
@@ -211,7 +188,7 @@ export default function AdminPanel() {
       const url = editingCategory
         ? `/api/categories/${editingCategory._id}`
         : '/api/categories';
-      
+     
       const method = editingCategory ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -229,12 +206,9 @@ export default function AdminPanel() {
         setMessage(`✅ Categoría ${editingCategory ? 'actualizada' : 'creada'} exitosamente`);
         loadCategories();
         resetCategoryForm();
-        
-        setTimeout(() => {
-          setShowCategoryForm(false);
-        }, 2000);
+        setTimeout(() => setMessage(''), 3000);
       } else {
-        setMessage(`❌ ${data.error || data.message || 'Error al guardar la categoría'}`);
+        setMessage(`❌ ${data.error || data.message}`);
       }
     } catch (error) {
       setMessage(`❌ Error al guardar la categoría: ${error.message}`);
@@ -242,7 +216,7 @@ export default function AdminPanel() {
   };
 
   const deleteProduct = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este producto? Esta acción no se puede deshacer.')) return;
+    if (!confirm('¿Estás seguro de eliminar este producto?')) return;
 
     try {
       const token = localStorage.getItem('token');
@@ -258,6 +232,7 @@ export default function AdminPanel() {
       if (data.success) {
         setMessage('✅ Producto eliminado exitosamente');
         loadProducts();
+        setTimeout(() => setMessage(''), 3000);
       } else {
         setMessage('❌ Error al eliminar el producto');
       }
@@ -267,11 +242,11 @@ export default function AdminPanel() {
   };
 
   const deleteCategory = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar esta categoría? Los productos de esta categoría quedarán sin categoría.')) return;
+    if (!confirm('¿Estás seguro de eliminar esta categoría?')) return;
 
     try {
       const token = localStorage.getItem('token');
-      
+     
       if (!token) {
         setMessage('❌ No estás autenticado');
         return;
@@ -289,6 +264,7 @@ export default function AdminPanel() {
       if (data.success) {
         setMessage('✅ Categoría eliminada exitosamente');
         loadCategories();
+        setTimeout(() => setMessage(''), 3000);
       } else {
         setMessage(`❌ ${data.message || 'Error al eliminar la categoría'}`);
       }
@@ -317,7 +293,7 @@ export default function AdminPanel() {
   const toggleProductStatus = async (product) => {
     try {
       const token = localStorage.getItem('token');
-      
+     
       if (!token) {
         setMessage('❌ No estás autenticado');
         return;
@@ -341,6 +317,7 @@ export default function AdminPanel() {
       if (data.success) {
         setMessage(`✅ Producto ${newStatus ? 'activado' : 'desactivado'} exitosamente`);
         loadProducts();
+        setTimeout(() => setMessage(''), 3000);
       } else {
         setMessage(`❌ ${data.error || data.message}`);
       }
@@ -363,7 +340,7 @@ export default function AdminPanel() {
   const toggleCategoryStatus = async (category) => {
     try {
       const token = localStorage.getItem('token');
-      
+     
       if (!token) {
         setMessage('❌ No estás autenticado');
         return;
@@ -387,6 +364,7 @@ export default function AdminPanel() {
       if (data.success) {
         setMessage(`✅ Categoría ${newStatus ? 'activada' : 'desactivada'} exitosamente`);
         loadCategories();
+        setTimeout(() => setMessage(''), 3000);
       } else {
         setMessage(`❌ ${data.error || data.message}`);
       }
@@ -421,12 +399,6 @@ export default function AdminPanel() {
     setShowCategoryForm(false);
   };
 
-  const clearFilters = () => {
-    setSearchTerm('');
-    setSelectedCategory('all');
-    setStatusFilter('all');
-  };
-
   if (!isAuthenticated || loading) {
     return (
       <div className="loading-full">
@@ -454,8 +426,8 @@ export default function AdminPanel() {
       <div className="admin-container">
         <header className="admin-header-compact">
           <div className="admin-header-content-compact">
-            <h1>⚙️ Panel de Administración</h1>
-            
+            <h1>⚙️ Panel Admin</h1>
+           
             <div className="admin-tabs-inline">
               <button
                 className={`admin-tab-inline ${activeTab === 'products' ? 'active' : ''}`}
@@ -475,7 +447,7 @@ export default function AdminPanel() {
               className="btn btn-secondary btn-sm"
               onClick={() => router.push('/products')}
             >
-              ← Volver a Tienda
+              ← Ir a Tienda
             </button>
           </div>
         </header>
@@ -490,82 +462,29 @@ export default function AdminPanel() {
           {activeTab === 'products' && (
             <>
               <div className="admin-actions">
-                <div className="admin-actions-left">
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => setShowProductForm(!showProductForm)}
-                  >
-                    {showProductForm ? '❌ Cancelar' : '➕ Nuevo Producto'}
-                  </button>
-                </div>
-                <div className="admin-stats">
-                  <span className="stat-item">
-                    <strong>{filteredProducts.length}</strong> productos
-                  </span>
-                  <span className="stat-item">
-                    <strong>{products.filter(p => p.activo).length}</strong> activos
-                  </span>
-                </div>
-              </div>
-
-              {/* BARRA DE BÚSQUEDA Y FILTROS */}
-              <div className="search-filters-bar">
-                <div className="search-box">
+                <div className="admin-search">
+                  <span className="admin-search-icon">🔍</span>
                   <input
                     type="text"
-                    placeholder="🔍 Buscar producto por nombre, código o descripción..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="search-input"
+                    className="admin-search-input"
+                    placeholder="Buscar por nombre, código o categoría..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
-                  {searchTerm && (
-                    <button 
-                      className="clear-search-btn"
-                      onClick={() => setSearchTerm('')}
-                      title="Limpiar búsqueda"
-                    >
-                      ✕
-                    </button>
-                  )}
                 </div>
-
-                <div className="filters-container">
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="all">📂 Todas las categorías</option>
-                    {categories.map(cat => (
-                      <option key={cat._id} value={cat.nombre}>{cat.nombre}</option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="filter-select"
-                  >
-                    <option value="all">📊 Todos los estados</option>
-                    <option value="active">✅ Activos</option>
-                    <option value="inactive">⏸️ Inactivos</option>
-                  </select>
-
-                  {(searchTerm !== '' || selectedCategory !== 'all' || statusFilter !== 'all') && (
-                    <button 
-                      className="btn btn-secondary btn-sm"
-                      onClick={clearFilters}
-                    >
-                      🗑️ Limpiar filtros
-                    </button>
-                  )}
-                </div>
+                
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setShowProductForm(!showProductForm)}
+                >
+                  {showProductForm ? '❌ Cancelar' : '➕ Nuevo Producto'}
+                </button>
               </div>
 
               {showProductForm && (
                 <form onSubmit={handleProductSubmit} className="admin-form">
                   <h3>{editingProduct ? '✏️ Editar Producto' : '➕ Nuevo Producto'}</h3>
-                  
+                 
                   <div className="form-grid">
                     <div className="form-group">
                       <label className="form-label">Código / Código de Barras *</label>
@@ -625,7 +544,7 @@ export default function AdminPanel() {
                         className="form-input"
                         required
                       >
-                        <option value="">📁 Seleccionar categoría...</option>
+                        <option value="">Seleccionar...</option>
                         {categories.map(cat => (
                           <option key={cat._id} value={cat.nombre}>{cat.nombre}</option>
                         ))}
@@ -663,7 +582,6 @@ export default function AdminPanel() {
                       onChange={(e) => setProductForm({...productForm, descripcion: e.target.value})}
                       className="form-input"
                       rows="3"
-                      placeholder="Descripción detallada del producto..."
                     />
                   </div>
 
@@ -691,109 +609,46 @@ export default function AdminPanel() {
                 </form>
               )}
 
-              {isLoading ? (
-                <div className="loading-table">
-                  <div className="spinner"></div>
-                  <p>Cargando productos...</p>
-                </div>
-              ) : filteredProducts.length === 0 ? (
-                <div className="no-results">
-                  <p>📭 No se encontraron productos</p>
-                  {searchTerm && <p>Intenta con otros términos de búsqueda</p>}
-                  <button 
-                    className="btn btn-secondary"
-                    onClick={clearFilters}
-                  >
-                    🗑️ Limpiar filtros
-                  </button>
-                </div>
-              ) : (
-                <div className="admin-table-container">
-                  <div className="table-header-info">
-                    <span>Mostrando {filteredProducts.length} de {products.length} productos</span>
-                    {searchTerm && (
-                      <span className="search-info">
-                        Resultados para: "{searchTerm}"
-                      </span>
-                    )}
-                  </div>
-                  <table className="admin-table">
-                    <thead>
+              <div className="admin-table-container">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Nombre</th>
+                      <th>Precio</th>
+                      <th>Stock</th>
+                      <th>Categoría</th>
+                      <th>Descuento</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredProducts.length === 0 ? (
                       <tr>
-                        <th>Producto</th>
-                        <th>Precio</th>
-                        <th>Stock</th>
-                        <th>Categoría</th>
-                        <th>Descuento</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
+                        <td colSpan="7" style={{textAlign: 'center', padding: '2rem', color: '#6b7280'}}>
+                          {searchQuery ? '🔍 No se encontraron productos que coincidan con tu búsqueda' : '📦 No hay productos registrados'}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {filteredProducts.map(product => (
+                    ) : (
+                      filteredProducts.map(product => (
                         <tr key={product._id} className={!product.activo ? 'inactive-row' : ''}>
                           <td>
                             <div className="product-name-cell">
-                              <div className="product-image-preview">
-                                {product.imagen ? (
-                                  <img 
-                                    src={product.imagen} 
-                                    alt={product.nombre}
-                                    className="product-thumbnail"
-                                  />
-                                ) : (
-                                  <div className="no-image">📷</div>
-                                )}
-                              </div>
-                              <div className="product-info">
-                                <strong>{product.nombre}</strong>
-                                <small className="product-code">{product.codigo}</small>
-                                {product.descripcion && (
-                                  <p className="product-description">
-                                    {product.descripcion.length > 50 
-                                      ? `${product.descripcion.substring(0, 50)}...` 
-                                      : product.descripcion}
-                                  </p>
-                                )}
-                              </div>
+                              <strong>{product.nombre}</strong>
+                              <small className="product-code">{product.codigo}</small>
                             </div>
                           </td>
-                          <td>
-                            <strong className="price-cell">
-                              ${parseFloat(product.precio).toFixed(2)}
-                            </strong>
-                            {product.descuento > 0 && (
-                              <div className="original-price">
-                                <s>${(parseFloat(product.precio) / (1 - product.descuento/100)).toFixed(2)}</s>
-                              </div>
-                            )}
-                          </td>
-                          <td>
-                            <span className={`stock-badge ${product.stock <= 5 ? 'low-stock' : product.stock <= 20 ? 'medium-stock' : 'high-stock'}`}>
-                              {product.stock} unidades
-                            </span>
-                          </td>
-                          <td>
-                            <span className="category-badge">
-                              {product.categoria}
-                            </span>
-                          </td>
-                          <td>
-                            {product.descuento > 0 ? (
-                              <span className="discount-badge">
-                                -{product.descuento}%
-                              </span>
-                            ) : (
-                              '-'
-                            )}
-                          </td>
+                          <td><strong>${product.precio.toFixed(2)}</strong></td>
+                          <td>{product.stock}</td>
+                          <td>{product.categoria}</td>
+                          <td>{product.descuento > 0 ? `${product.descuento}%` : '-'}</td>
                           <td>
                             <button
                               className={`status-toggle ${product.activo ? 'active' : 'inactive'}`}
                               onClick={() => toggleProductStatus(product)}
                               title={product.activo ? 'Click para desactivar' : 'Click para activar'}
                             >
-                              {product.activo ? '✅ Activo' : '⏸️ Inactivo'}
+                              {product.activo ? '✓ Activo' : '✗ Inactivo'}
                             </button>
                           </td>
                           <td>
@@ -815,39 +670,29 @@ export default function AdminPanel() {
                             </div>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
 
           {activeTab === 'categories' && (
             <>
               <div className="admin-actions">
-                <div className="admin-actions-left">
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => setShowCategoryForm(!showCategoryForm)}
-                  >
-                    {showCategoryForm ? '❌ Cancelar' : '➕ Nueva Categoría'}
-                  </button>
-                </div>
-                <div className="admin-stats">
-                  <span className="stat-item">
-                    <strong>{categories.length}</strong> categorías
-                  </span>
-                  <span className="stat-item">
-                    <strong>{categories.filter(c => c.activa).length}</strong> activas
-                  </span>
-                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setShowCategoryForm(!showCategoryForm)}
+                >
+                  {showCategoryForm ? '❌ Cancelar' : '➕ Nueva Categoría'}
+                </button>
               </div>
 
               {showCategoryForm && (
                 <form onSubmit={handleCategorySubmit} className="admin-form">
                   <h3>{editingCategory ? '✏️ Editar Categoría' : '➕ Nueva Categoría'}</h3>
-                  
+                 
                   <div className="form-grid">
                     <div className="form-group">
                       <label className="form-label">Nombre *</label>
@@ -857,7 +702,6 @@ export default function AdminPanel() {
                         onChange={(e) => setCategoryForm({...categoryForm, nombre: e.target.value})}
                         className="form-input"
                         required
-                        placeholder="Ej: Electrónica, Ropa, Hogar"
                       />
                     </div>
                   </div>
@@ -869,7 +713,6 @@ export default function AdminPanel() {
                       onChange={(e) => setCategoryForm({...categoryForm, descripcion: e.target.value})}
                       className="form-input"
                       rows="3"
-                      placeholder="Descripción de la categoría..."
                     />
                   </div>
 
@@ -880,7 +723,7 @@ export default function AdminPanel() {
                         checked={categoryForm.activa}
                         onChange={(e) => setCategoryForm({...categoryForm, activa: e.target.checked})}
                       />
-                      <span>Categoría activa (visible en la tienda)</span>
+                      <span>Categoría activa</span>
                     </label>
                   </div>
 
@@ -896,9 +739,6 @@ export default function AdminPanel() {
               )}
 
               <div className="admin-table-container">
-                <div className="table-header-info">
-                  <span>Total: {categories.length} categorías</span>
-                </div>
                 <table className="admin-table">
                   <thead>
                     <tr>
@@ -909,45 +749,47 @@ export default function AdminPanel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {categories.map(category => (
-                      <tr key={category._id} className={!category.activa ? 'inactive-row' : ''}>
-                        <td>
-                          <strong>{category.nombre}</strong>
-                        </td>
-                        <td>
-                          <div className="category-description">
-                            {category.descripcion || '-'}
-                          </div>
-                        </td>
-                        <td>
-                          <button
-                            className={`status-toggle ${category.activa ? 'active' : 'inactive'}`}
-                            onClick={() => toggleCategoryStatus(category)}
-                            title={category.activa ? 'Click para desactivar' : 'Click para activar'}
-                          >
-                            {category.activa ? '✅ Activa' : '⏸️ Inactiva'}
-                          </button>
-                        </td>
-                        <td>
-                          <div className="table-actions">
-                            <button
-                              className="btn-icon btn-edit"
-                              onClick={() => editCategory(category)}
-                              title="Editar"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              className="btn-icon btn-delete"
-                              onClick={() => deleteCategory(category._id)}
-                              title="Eliminar"
-                            >
-                              🗑️
-                            </button>
-                          </div>
+                    {categories.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" style={{textAlign: 'center', padding: '2rem', color: '#6b7280'}}>
+                          🏷️ No hay categorías registradas
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      categories.map(category => (
+                        <tr key={category._id} className={!category.activa ? 'inactive-row' : ''}>
+                          <td><strong>{category.nombre}</strong></td>
+                          <td>{category.descripcion || '-'}</td>
+                          <td>
+                            <button
+                              className={`status-toggle ${category.activa ? 'active' : 'inactive'}`}
+                              onClick={() => toggleCategoryStatus(category)}
+                              title={category.activa ? 'Click para desactivar' : 'Click para activar'}
+                            >
+                              {category.activa ? '✓ Activa' : '✗ Inactiva'}
+                            </button>
+                          </td>
+                          <td>
+                            <div className="table-actions">
+                              <button
+                                className="btn-icon btn-edit"
+                                onClick={() => editCategory(category)}
+                                title="Editar"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                className="btn-icon btn-delete"
+                                onClick={() => deleteCategory(category._id)}
+                                title="Eliminar"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
